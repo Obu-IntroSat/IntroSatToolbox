@@ -11,11 +11,26 @@ permissions:
 
 jobs:
   build:
-    runs-on: windows-latest
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve version from tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -35,15 +50,24 @@ jobs:
           pyinstaller packages/app_comms/build.spec
           pyinstaller packages/app_firmware/build.spec
 
-      - name: Upload executables as artifacts
+      # Pack into one platform-named archive so release assets never collide
+      # (Linux/macOS executables share the same names). tar exists on all runners.
+      - name: Package build
+        shell: bash
+        run: |
+          archive="introsat-toolbox-${{ matrix.platform }}-${{ env.VERSION }}.tar.gz"
+          tar -czf "$archive" -C dist .
+          echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
+
+      - name: Upload build as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: introsat-toolbox-${{ github.ref_name }}
-          path: dist/*
+          name: introsat-toolbox-${{ matrix.platform }}-${{ env.VERSION }}
+          path: ${{ env.ARCHIVE }}
           if-no-files-found: error
 
-      - name: Attach executables to GitHub Release
+      - name: Attach archive to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: ${{ env.ARCHIVE }}
           fail_on_unmatched_files: true
