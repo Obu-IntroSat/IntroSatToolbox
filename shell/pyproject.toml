@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "introsat-shell"
+version = "0.1.0"
+description = "IntroSat Toolbox launcher - shows every installed app as a tab"
+requires-python = ">=3.10"
+dependencies = [
+    "satcore",
+    "PySide6>=6.6",
+]
+
+[project.scripts]
+introsat = "shell.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["shell*"]

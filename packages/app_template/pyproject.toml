@@ -1,0 +1,27 @@
+# Copy this whole folder to create a new app, then rename:
+#   - the folder            packages/app_template -> packages/app_<name>
+#   - the package folder     app_template          -> app_<name>
+#   - the name / entry point / script below
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "app-template"
+version = "0.1.0"
+description = "IntroSat Toolbox - empty template app, copy me to start a new tab"
+requires-python = ">=3.10"
+dependencies = [
+    "satcore",
+    "PySide6>=6.6",
+]
+
+[project.entry-points."introsat.apps"]
+template = "app_template.plugin:TemplatePlugin"
+
+[project.scripts]
+app-template = "app_template.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app_template*"]

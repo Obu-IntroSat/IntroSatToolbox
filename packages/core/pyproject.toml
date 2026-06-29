@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "satcore"
+version = "0.1.0"
+description = "Shared core for IntroSat Toolbox apps (plugin contract, serial, process helpers)"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6",
+    "pyserial>=3.5",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["satcore*"]

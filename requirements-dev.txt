@@ -1,0 +1,10 @@
+# Install everything in editable mode for development.
+#   pip install -r requirements-dev.txt
+-e packages/core
+-e packages/app_comms
+-e packages/app_firmware
+-e packages/app_template
+-e shell
+
+# Build tool for producing executables.
+pyinstaller>=6.0

@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "app-comms"
+version = "0.1.0"
+description = "IntroSat Toolbox - device interaction over a COM port"
+requires-python = ">=3.10"
+dependencies = [
+    "satcore",
+    "PySide6>=6.6",
+    "pyserial>=3.5",
+]
+
+# Registers this app so the launcher can pick it up automatically.
+[project.entry-points."introsat.apps"]
+comms = "app_comms.plugin:CommsPlugin"
+
+[project.scripts]
+app-comms = "app_comms.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app_comms*"]

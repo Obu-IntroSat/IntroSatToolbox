@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "app-firmware"
+version = "0.1.0"
+description = "IntroSat Toolbox - flash firmware to a microcontroller via a programmer"
+requires-python = ">=3.10"
+dependencies = [
+    "satcore",
+    "PySide6>=6.6",
+]
+
+[project.entry-points."introsat.apps"]
+firmware = "app_firmware.plugin:FirmwarePlugin"
+
+[project.scripts]
+app-firmware = "app_firmware.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app_firmware*"]
