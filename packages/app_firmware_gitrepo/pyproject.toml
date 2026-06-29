@@ -1,0 +1,20 @@
+[project]
+name = "app_firmware_gitrepo"
+version = "0.1.0"
+description = "Firmware flashing from Git repositories for STM32 and ATmega"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "satcore",
+    "PySide6>=6.6",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project.scripts]
+app-firmware-gitrepo = "app_firmware_gitrepo.__main__:main"
+
+[project.entry-points."introsat.apps"]
+firmware_gitrepo = "app_firmware_gitrepo.plugin:FirmwareGitRepoPlugin"
