@@ -17,7 +17,7 @@ from .widget import TemplateWidget
 
 class TemplatePlugin(AppPlugin):
     id = "test_stnd"
-    title = "Тестирование_стенда"
+    title = "Тестирование стенда"
     order = 30
 
     def create_widget(self, parent: QWidget | None = None) -> QWidget:
