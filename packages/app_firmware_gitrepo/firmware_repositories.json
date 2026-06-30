@@ -1,0 +1,23 @@
+{
+  "repositories": [
+    {
+      "name": "firmware-e_sbs_1.x",
+      "url": "https://github.com/Obu-IntroSat/firmware-e_sbs_1.x",
+      "description": "Прошивка платы имитатора солнечных батарей для версии 1.4",
+      "device": "device",
+      "file_pattern": "firmware-e_sbs_1.x-*.elf"
+    },
+    {
+      "name": "firmware-pl_psm_1.x",
+      "url": "https://github.com/Obu-IntroSat/firmware-pl_psm_1.x",
+      "description": "no description",
+      "device": "device",
+      "file_pattern": "firmware-pl_psm_1.x-*.elf"
+    }
+  ],
+  "settings": {
+    "local_storage": ".introsat/firmware",
+    "check_interval_hours": 24,
+    "max_releases_per_repo": 10
+  }
+}
