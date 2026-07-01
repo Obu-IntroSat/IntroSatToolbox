@@ -1,0 +1,19 @@
+{
+  "name": "Example Camera",
+  "description": "Пример конфигурации",
+  "capture": "t",
+  "properties": "p",
+  "next_chunk": "n",
+  "set_size": "s",
+  "set_exposure": "e",
+  "start_transfer": "r",
+  "baudrate": 230400,
+  "preamble": "ffff00",
+  "postamble": "00ff00",
+  "chunk_size": 240,
+  "property_size": 18,
+  "timeout_capture": 15.0,
+  "timeout_chunk": 2.0,
+  "property_format": "<HHHHHHLH",
+  "chunk_format": "<HH?240BB"
+}
