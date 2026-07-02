@@ -8,6 +8,15 @@ from PySide6.QtWidgets import (
     QComboBox, QPushButton, QTextEdit, QFrame
 )
 
+from .test_controller import (
+    create_controller,
+    execute_connection_check,
+    execute_firmware_version,
+    execute_stand_version,
+    execute_i2c_test,
+    execute_spi_test
+)
+
 
 class TemplateWidget(QWidget):
     def __init__(self, parent: QWidget | None = None):
@@ -165,46 +174,29 @@ class TemplateWidget(QWidget):
 
         main_layout.addWidget(output_container)
 
+        # Создаем контроллер
+        self.controller = create_controller(port="COM15", baudrate=9600)
+
     # === ОБРАБОТЧИКИ СОБЫТИЙ ===
 
     def on_check_connection(self):
         """Проверка подключения к МК или оснастке."""
         selected = self.connection_combo.currentText()
+        result = execute_connection_check(self.controller, selected)
         self.output_text.clear()
-        self.output_text.append(f"Проверка подключения: {selected}")
-        self.output_text.append("")
-        self.output_text.append("Выполняется проверка...")
-
-        # ТУТ БУДЕТ ВЫЗОВ РЕАЛЬНОЙ ПРОВЕРКИ ПОДКЛЮЧЕНИЯ
-        # Например: result = check_connection(selected)
-        # self.output_text.append(result)
-
-        self.output_text.append("")
-        self.output_text.append("[ПРИМЕР] Проверка выполнена успешно")
+        self.output_text.append(result)
 
     def on_request_firmware(self):
         """Запрос версии прошивки."""
+        result = execute_firmware_version(self.controller)
         self.output_text.clear()
-        self.output_text.append("Запрос версии прошивки...")
-        self.output_text.append("")
-
-        # ТУТ БУДЕТ ВЫЗОВ ЗАПРОСА ВЕРСИИ ПРОШИВКИ
-        # Например: result = get_firmware_version()
-        # self.output_text.append(result)
-
-        self.output_text.append("[ПРИМЕР] Версия прошивки: v2.4.1")
+        self.output_text.append(result)
 
     def on_request_stand_version(self):
         """Запрос версии стенда."""
+        result = execute_stand_version(self.controller)
         self.output_text.clear()
-        self.output_text.append("Запрос версии стенда...")
-        self.output_text.append("")
-
-        # ТУТ БУДЕТ ВЫЗОВ ЗАПРОСА ВЕРСИИ СТЕНДА
-        # Например: result = get_stand_version()
-        # self.output_text.append(result)
-
-        self.output_text.append("[ПРИМЕР] Версия стенда: 1.2.0")
+        self.output_text.append(result)
 
     def on_run_test(self):
         """Запуск выбранного теста."""
@@ -225,18 +217,102 @@ class TemplateWidget(QWidget):
         self.output_text.append(f"Запуск теста: {test_name}")
         self.output_text.append("")
         self.output_text.append("Выполнение теста...")
-
-        # ТУТ БУДЕТ ВЫЗОВ РЕАЛЬНОГО ТЕСТА
-        # В зависимости от выбранного теста:
-        # if "LIS2MDL" in test_name:
-        #     result = run_test_lis2mdl()
-        # elif "LSM6DS3" in test_name:
-        #     result = run_test_lsm6ds3()
-        # elif "CC1101" in test_name:
-        #     result = run_test_cc1101()
-        # else:
-        #     result = run_test_full()
-        # self.output_text.append(result)
-
         self.output_text.append("")
-        self.output_text.append("[ПРИМЕР] Тест выполнен успешно")
+
+        # Выполняем соответствующий тест
+        if "LIS2MDL" in test_name:
+            result = execute_i2c_test(self.controller, "LIS2MDL", 0x1E)
+        elif "LSM6DS3" in test_name:
+            result = execute_i2c_test(self.controller, "LSM6DS3", 0x6A)
+        elif "CC1101" in test_name:
+            result = execute_spi_test(self.controller)
+        else:  # FCT - Полное тестирование
+            result = self.run_full_test()
+
+        self.output_text.append(result)
+
+    def run_full_test(self) -> str:
+        """Полное функциональное тестирование."""
+        lines = []
+        lines.append("=== FCT - Полное тестирование ===")
+        lines.append("")
+
+        # Счетчики для отслеживания результатов
+        total_tests = 0
+        passed_tests = 0
+        failed_tests = 0
+
+        # Тест 1: Проверка подключения
+        total_tests += 1
+        lines.append(f"Тест {total_tests}: Проверка подключения")
+        result = execute_connection_check(self.controller, "МК")
+        lines.append(result)
+        lines.append("")
+        if "Ошибка" not in result:
+            passed_tests += 1
+        else:
+            failed_tests += 1
+
+        # Если подключение не удалось, остальные тесты не имеют смысла
+        if failed_tests > 0:
+            lines.append("")
+            lines.append("=" * 50)
+            lines.append("   ТЕСТИРОВАНИЕ ОСТАНОВЛЕНО!")
+            lines.append("   Не удалось подключиться к стенду.")
+            lines.append("   Проверьте:")
+            lines.append("     1. Подключен ли стенд по USB")
+            lines.append("     2. Правильный ли COM-порт (сейчас COM15)")
+            lines.append("     3. Запущен ли эмулятор (emulator.py)")
+            lines.append("=" * 50)
+            return "\n".join(lines)
+
+        # Тест 2: Версия прошивки
+        total_tests += 1
+        lines.append(f"Тест {total_tests}: Версия прошивки")
+        result = execute_firmware_version(self.controller)
+        lines.append(result)
+        lines.append("")
+        if "Ошибка" not in result:
+            passed_tests += 1
+        else:
+            failed_tests += 1
+
+        # Тест 3: Версия стенда
+        total_tests += 1
+        lines.append(f"Тест {total_tests}: Версия стенда")
+        result = execute_stand_version(self.controller)
+        lines.append(result)
+        lines.append("")
+        if "Ошибка" not in result:
+            passed_tests += 1
+        else:
+            failed_tests += 1
+
+        # Тест 4: I2C тест LIS2MDL
+        total_tests += 1
+        lines.append(f"Тест {total_tests}: LIS2MDL (I2C)")
+        result = execute_i2c_test(self.controller, "LIS2MDL", 0x1E)
+        lines.append(result)
+        lines.append("")
+        if "Ошибка" not in result:
+            passed_tests += 1
+        else:
+            failed_tests += 1
+
+        # Итоговый отчет
+        lines.append("=" * 50)
+        lines.append("    ИТОГОВЫЙ ОТЧЕТ:")
+        lines.append(f"   Всего тестов: {total_tests}")
+        lines.append(f"   Пройдено: {passed_tests}")
+        lines.append(f"   Провалено: {failed_tests}")
+
+        if failed_tests == 0:
+            lines.append("")
+            lines.append("ВСЕ ТЕСТЫ ПРОЙДЕНЫ УСПЕШНО!")
+        else:
+            lines.append("")
+            lines.append("ЕСТЬ ПРОВАЛЕННЫЕ ТЕСТЫ!")
+            lines.append("   Проверьте подключение и повторите попытку.")
+        lines.append("=" * 50)
+
+        return "\n".join(lines)
