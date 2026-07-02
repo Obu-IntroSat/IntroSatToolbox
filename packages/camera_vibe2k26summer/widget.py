@@ -11,14 +11,14 @@ from typing import Optional, Dict, Any
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal, QThread
-from PySide6.QtGui import QImage, QPixmap, QWheelEvent
+from PySide6.QtGui import QImage, QPixmap, QWheelEvent, QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
     QPushButton, QTextEdit, QGroupBox,
     QComboBox, QGridLayout, QMessageBox, QProgressBar,
     QSpinBox, QCheckBox, QTabWidget, QLineEdit,
     QFileDialog, QSplitter, QDialog, QDialogButtonBox,
-    QFormLayout, QSlider, QScrollArea
+    QFormLayout, QSlider, QScrollArea, QSizePolicy
 )
 
 from PIL import Image
@@ -682,7 +682,7 @@ class CameraWidget(QWidget):
         # Сначала создаем UI
         self.setup_ui()
         
-        # Потом загружаем конфигурации (уже после создания log_text)
+        # Потом загружаем конфигурации
         self.load_default_configs()
         self.load_configs_from_folder()
         
@@ -732,7 +732,7 @@ class CameraWidget(QWidget):
         main_layout.setSpacing(8)
         
         # Заголовок
-        title = QLabel("📷 ИЩИ СЕБЯ В ПРОШМАНОВКАХ АЗЕРБАЙДЖАНА🫦")
+        title = QLabel("📷 ИЩИ СЕБЯ В ПРОШМАНДОВКАХ АЗЕРБАЙДЖАНА🫦")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet(
             "font-size: 18px; font-weight: bold; padding: 8px; "
@@ -836,9 +836,11 @@ class CameraWidget(QWidget):
         self.h_start_spin.setFixedWidth(60)
         settings_layout.addWidget(self.h_start_spin, 1, 3)
         
+        # УВЕЛИЧЕННАЯ КНОПКА "Обрезка"
         self.set_crop_btn = QPushButton("Обрезка")
         self.set_crop_btn.clicked.connect(self.apply_crop)
-        self.set_crop_btn.setFixedWidth(60)
+        self.set_crop_btn.setFixedWidth(80)  # Было 60
+        self.set_crop_btn.setMinimumHeight(30)  # Добавлено
         settings_layout.addWidget(self.set_crop_btn, 1, 4)
         
         settings_layout.addWidget(QLabel("Эксп:"), 2, 0)
@@ -853,14 +855,16 @@ class CameraWidget(QWidget):
         self.auto_exp_check.toggled.connect(self.toggle_auto_exposure)
         settings_layout.addWidget(self.auto_exp_check, 2, 2)
         
+        # УВЕЛИЧЕННАЯ КНОПКА "Экспозиция"
         self.set_exp_btn = QPushButton("Экспозиция")
         self.set_exp_btn.clicked.connect(self.apply_exposure)
-        self.set_exp_btn.setFixedWidth(70)
+        self.set_exp_btn.setFixedWidth(90)  # Было 70
+        self.set_exp_btn.setMinimumHeight(30)  # Добавлено
         settings_layout.addWidget(self.set_exp_btn, 2, 3)
         
         control_layout.addWidget(settings_group)
         
-        # Кнопки управления
+        # Кнопки управления (оставляем как было)
         control_btns = QHBoxLayout()
         
         self.capture_btn = QPushButton("📸 Снимок")
