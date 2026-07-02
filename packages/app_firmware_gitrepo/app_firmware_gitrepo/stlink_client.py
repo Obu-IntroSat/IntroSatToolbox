@@ -50,21 +50,54 @@ class STLinkClient:
             )
             info["version"] = result.stdout.strip()
             
-            # Проверяем, есть ли подключенное устройство
+            # Проверяем через probe, есть ли подключенное устройство
             result = subprocess.run(
-                ["st-info", "--chip"],
+                ["st-info", "--probe"],
                 capture_output=True,
                 text=True,
                 check=True,
                 timeout=5
             )
-            if "unknown" not in result.stdout.lower():
+            if "Found 1 stlink programmers" in result.stdout:
                 info["connected"] = True
                 
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             pass
             
         return info
+    
+    def _run_st_info(self, arg: str) -> str:
+        """Выполняет одну команду st-info и возвращает вывод."""
+        try:
+            result = subprocess.run(
+                ["st-info", arg],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5
+            )
+            return result.stdout.strip()
+        except Exception:
+            return ""
+    
+    def _parse_hex_value(self, hex_str: str) -> int:
+        """Преобразует hex-строку в число."""
+        try:
+            if hex_str.startswith("0x"):
+                return int(hex_str, 16)
+            return int(hex_str)
+        except Exception:
+            return 0
+    
+    def _format_size(self, hex_str: str) -> str:
+        """Преобразует размер из hex в KB или MB."""
+        bytes_val = self._parse_hex_value(hex_str)
+        if bytes_val == 0:
+            return hex_str
+        if bytes_val >= 1024 * 1024:
+            return f"{bytes_val // (1024 * 1024)} MB"
+        else:
+            return f"{bytes_val // 1024} KB"
     
     def connect(self) -> Tuple[bool, str]:
         """
@@ -77,54 +110,54 @@ class STLinkClient:
             return False, "ST-Link не найден. Установите st-link (https://github.com/stlink-org/stlink)"
         
         try:
-            # Получаем информацию о чипе
-            result = subprocess.run(
-                ["st-info", "--chip", "--core-id", "--serial", "--flash", "--sram"],
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=10
-            )
+            # Вызываем каждый параметр отдельно
+            chipid = self._run_st_info("--chipid")
+            serial = self._run_st_info("--serial")
+            flash = self._run_st_info("--flash")
+            sram = self._run_st_info("--sram")
+            descr = self._run_st_info("--descr")
             
-            self.device_info = self._parse_st_info(result.stdout)
+            # Проверяем, что устройство найдено
+            if not chipid and not serial:
+                return False, "Устройство не найдено. Проверьте подключение программатора"
+            
+            self.device_info = {
+                "chipid": chipid if chipid else "Unknown",
+                "serial": serial if serial else "Unknown",
+                "flash_size": self._format_size(flash) if flash else "Unknown",
+                "sram_size": self._format_size(sram) if sram else "Unknown",
+                "description": descr if descr else "Unknown",
+                "chip": descr if descr else f"STM32 (ID: {chipid})"
+            }
+            
             self._connected = True
-            
             return True, "Устройство успешно подключено"
             
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr if e.stderr else str(e)
-            
-            # Анализируем ошибку
-            if "no device found" in error_msg.lower():
-                return False, "Устройство не найдено. Проверьте подключение программатора"
-            elif "connect under reset" in error_msg.lower():
-                return False, "Ошибка подключения. Попробуйте сбросить устройство"
-            else:
-                return False, f"Ошибка ST-Link: {error_msg}"
         except subprocess.TimeoutExpired:
             return False, "Таймаут подключения. Проверьте программатор"
         except FileNotFoundError:
             return False, "st-info не найден. Убедитесь, что ST-Link установлен и добавлен в PATH"
         except Exception as e:
-            return False, f"Ошибка: {str(e)}"
+            return False, f"Ошибка подключения: {str(e)}"
     
     def _parse_st_info(self, output: str) -> Dict[str, str]:
-        """Парсит вывод st-info."""
+        """Парсит вывод st-info (устаревший, оставлен для совместимости)."""
         info = {
             "chip": "Unknown",
-            "core_id": "Unknown",
+            "chipid": "Unknown",
             "serial": "Unknown",
             "flash_size": "Unknown",
-            "sram_size": "Unknown"
+            "sram_size": "Unknown",
+            "description": "Unknown"
         }
         
-        # Парсим информацию
         patterns = {
             "chip": r"chip:\s*(\w+)",
-            "core_id": r"core[-_]id:\s*([0-9a-fA-F]+)",
+            "chipid": r"chipid:\s*([0-9a-fA-F]+)",
             "serial": r"serial:\s*([0-9a-fA-F]+)",
             "flash_size": r"flash:\s*(\d+)\s*KB",
-            "sram_size": r"sram:\s*(\d+)\s*KB"
+            "sram_size": r"sram:\s*(\d+)\s*KB",
+            "description": r"descr:\s*(.+)"
         }
         
         for key, pattern in patterns.items():
@@ -163,7 +196,7 @@ class STLinkClient:
                 capture_output=True,
                 text=True,
                 check=True,
-                timeout=120  # Таймаут 120 секунд
+                timeout=120
             )
             
             # Проверяем вывод на ошибки
@@ -188,6 +221,25 @@ class STLinkClient:
     def get_device_info(self) -> Dict[str, str]:
         """Возвращает информацию об устройстве."""
         return self.device_info
+    
+    def get_device_family(self) -> str:
+        """
+        Определяет семейство устройства по информации о чипе.
+        
+        Returns:
+            'STM32', 'ATmega' или 'Unknown'
+        """
+        descr = self.device_info.get('description', '').upper()
+        chipid = self.device_info.get('chipid', '').upper()
+        
+        if 'F1' in descr or 'F4' in descr or 'F0' in descr or 'F2' in descr or 'F3' in descr:
+            return 'STM32'
+        elif 'STM32' in descr or 'STM' in descr:
+            return 'STM32'
+        elif 'AT' in chipid or 'MEGA' in descr:
+            return 'ATmega'
+        else:
+            return 'STM32' if chipid else 'Unknown'
     
     def is_connected(self) -> bool:
         """Проверяет, подключено ли устройство."""
