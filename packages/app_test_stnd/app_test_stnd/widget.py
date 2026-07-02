@@ -299,6 +299,28 @@ class TemplateWidget(QWidget):
         else:
             failed_tests += 1
 
+        # Тест 5: I2C тест LSM6DS3
+        total_tests += 1
+        lines.append(f"Тест {total_tests}: LSM6DS3 (I2C)")
+        result = execute_i2c_test(self.controller, "LSM6DS3", 0x6A)
+        lines.append(result)
+        lines.append("")
+        if "Ошибка" not in result:
+            passed_tests += 1
+        else:
+            failed_tests += 1
+
+        # Тест 6: SPI тест CC1101
+        total_tests += 1
+        lines.append(f"Тест {total_tests}: CC1101 (SPI)")
+        result = execute_spi_test(self.controller)
+        lines.append(result)
+        lines.append("")
+        if "Ошибка" not in result:
+            passed_tests += 1
+        else:
+            failed_tests += 1
+
         # Итоговый отчет
         lines.append("=" * 50)
         lines.append("    ИТОГОВЫЙ ОТЧЕТ:")

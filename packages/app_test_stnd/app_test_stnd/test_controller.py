@@ -5,7 +5,8 @@ from __future__ import annotations
 
 import serial
 import time
-from typing import Callable, Optional
+import yaml
+from typing import Callable, Optional, List, Dict, Any
 from pathlib import Path
 
 from . import generated_protocol as proto
@@ -142,6 +143,56 @@ class TestController:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
+    # --- НОВЫЙ МЕТОД: выполнение YAML-сценария ---
+    def run_scenario(self, scenario_path: str, timeout: float = 2.0) -> List[Dict[str, Any]]:
+        """
+        Выполняет сценарий из YAML-файла.
+
+        Args:
+            scenario_path: Путь к YAML-файлу сценария
+            timeout: Таймаут для каждой команды
+
+        Returns:
+            Список результатов каждого шага. Каждый результат содержит:
+                - step_index (int)
+                - description (str)
+                - command (str)
+                - params (dict)
+                - success (bool)
+                - response_code (int, если успешно)
+                - response_data (dict, если успешно)
+                - error (str, если ошибка)
+        """
+        with open(scenario_path, 'r', encoding='utf-8') as f:
+            scenario = yaml.safe_load(f)
+
+        results = []
+        for idx, step in enumerate(scenario.get('steps', []), start=1):
+            desc = step.get('description', f"Шаг {idx}")
+            cmd_name = step['command']
+            params = step.get('params', {})
+
+            result = {
+                'step_index': idx,
+                'description': desc,
+                'command': cmd_name,
+                'params': params,
+            }
+
+            # Выполняем команду
+            exec_result = self.execute_command(cmd_name, params, timeout)
+            result.update(exec_result)
+
+            results.append(result)
+
+            # Если шаг завершился ошибкой, можно остановить выполнение (по желанию)
+            # Здесь мы не останавливаем, чтобы выполнить все шаги.
+            # Чтобы остановить, раскомментируйте следующую строку:
+            # if not exec_result['success']:
+            #     break
+
+        return results
+
 
 # === ФУНКЦИИ ДЛЯ ВЫЗОВА ИЗ WIDGET ===
 
@@ -170,30 +221,29 @@ def format_test_result(result: dict, test_name: str) -> str:
     return "\n".join(lines)
 
 
-def execute_connection_check(controller: TestController, target: str) -> str:
-    """
-    Проверка подключения к МК или оснастке.
-    """
+def format_scenario_results(results: List[Dict[str, Any]]) -> str:
+    """Форматирует результаты выполнения сценария для вывода."""
     lines = []
-    lines.append(f"Проверка подключения: {target}")
-    lines.append("")
-
-    if not controller.connect():
-        return "Ошибка: Не удалось подключиться к стенду"
-
-    # Отправляем GetStatus для проверки связи
-    result = controller.execute_command("GetStatus", {})
-
-    if result['success']:
-        powered = result['response_data'].get('powered', False)
-        status_text = "Включено" if powered else "Выключено"
-        lines.append(f"Связь установлена")
-        lines.append(f"  Статус питания: {status_text}")
-    else:
-        lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-
-    controller.disconnect()
+    for r in results:
+        lines.append(f"[{r['step_index']}] {r['description']}")
+        lines.append(f"   Команда: {r['command']}")
+        if r['success']:
+            lines.append("   Успешно")
+            for key, value in r.get('response_data', {}).items():
+                lines.append(f"      {key}: {value}")
+        else:
+            lines.append(f"   Ошибка: {r.get('error', 'Неизвестная ошибка')}")
+        lines.append("")
     return "\n".join(lines)
+
+
+# --- Существующие функции для готовых тестов (без изменений) ---
+
+def execute_connection_check(controller: TestController, target: str) -> str:
+    """Проверка подключения к МК или оснастке с использованием YAML-сценария."""
+    # Игнорируем target, так как сценарий check_power.yaml уже содержит описание
+    scenario_path = Path(__file__).parent / "../scenarios/check_power.yaml"
+    return execute_scenario(controller, str(scenario_path))
 
 
 def execute_firmware_version(controller: TestController) -> str:
@@ -246,141 +296,36 @@ def execute_stand_version(controller: TestController) -> str:
 
 
 def execute_i2c_test(controller: TestController, device_name: str, i2c_address: int) -> str:
-    """Выполняет I2C тест для устройства."""
-    lines = []
-    lines.append(f"Тест: {device_name}")
-    lines.append("")
-
-    if not controller.connect():
-        return "Ошибка: Не удалось подключиться к стенду"
-
-    # Шаг 1: Проверка наличия устройства
-    lines.append("Шаг 1: Проверка наличия устройства на шине I2C")
-    result = controller.execute_command("I2cProbe", {"address": i2c_address})
-
-    if not result['success']:
-        lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-        controller.disconnect()
-        return "\n".join(lines)
-
-    present = result['response_data'].get('present', False)
-    if not present:
-        lines.append("Устройство не обнаружено!")
-        controller.disconnect()
-        return "\n".join(lines)
-
-    lines.append("Устройство обнаружено")
-    lines.append("")
-
-    # Шаг 2: Чтение WHO_AM_I (для LIS2MDL регистр 0x4F)
-    lines.append("Шаг 2: Чтение WHO_AM_I регистра")
-    result = controller.execute_command("I2cReadRegister", {
-        "address": i2c_address,
-        "reg": 0x4F,
-        "len": 1
-    })
-
-    if not result['success']:
-        lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-        controller.disconnect()
-        return "\n".join(lines)
-
-    data = result['response_data'].get('data', [])
-    if data and len(data) > 0:
-        who_am_i = data[0]
-        if device_name == "LIS2MDL" and who_am_i == 0x40:
-            lines.append(f"WHO_AM_I: 0x{who_am_i:02X} (верно)")
-        elif device_name == "LSM6DS3" and who_am_i == 0x69:
-            lines.append(f"WHO_AM_I: 0x{who_am_i:02X} (верно)")
-        else:
-            lines.append(f"WHO_AM_I: 0x{who_am_i:02X} (неизвестное устройство)")
+    """Выполняет I2C тест для устройства, используя YAML-сценарий."""
+    # Выбираем сценарий в зависимости от device_name
+    if device_name == "LIS2MDL":
+        scenario_path = Path(__file__).parent / "../scenarios/test_lis2mdl.yaml"
+    elif device_name == "LSM6DS3":
+        scenario_path = Path(__file__).parent / "../scenarios/test_lsm6ds3.yaml"
     else:
-        lines.append("Не удалось прочитать WHO_AM_I")
-        controller.disconnect()
-        return "\n".join(lines)
+        return f"Ошибка: Неизвестное устройство {device_name}"
 
-    # Шаг 3: Проверка данных датчика
-    lines.append("")
-    lines.append("Шаг 3: Чтение данных датчика")
-    result = controller.execute_command("I2cRead", {
-        "address": i2c_address,
-        "len": 6
-    })
-
-    if not result['success']:
-        lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-        controller.disconnect()
-        return "\n".join(lines)
-
-    data = result['response_data'].get('data', [])
-    if len(data) >= 6:
-        values = [data[i] for i in range(6)]
-        lines.append(f"Данные: {values}")
-    else:
-        lines.append("Данные получены, но недостаточной длины")
-        controller.disconnect()
-        return "\n".join(lines)
-
-    lines.append("")
-    lines.append("Тест пройден успешно!")
-
-    controller.disconnect()
-    return "\n".join(lines)
+    # Вызываем универсальную функцию выполнения сценария
+    return execute_scenario(controller, str(scenario_path))
 
 
 def execute_spi_test(controller: TestController) -> str:
-    """Выполняет SPI тест для CC1101."""
-    lines = []
-    lines.append("Тест: CC1101 (SPI)")
-    lines.append("")
+    """Выполняет SPI тест для CC1101, используя YAML-сценарий."""
+    # Определяем путь к сценарию относительно текущего файла
+    scenario_path = Path(__file__).parent / "../scenarios/test_cc1101.yaml"
+    # Вызываем универсальную функцию выполнения сценария
+    return execute_scenario(controller, str(scenario_path))
 
+
+def execute_scenario(controller: TestController, scenario_path: str) -> str:
+    """
+    Выполняет YAML-сценарий и возвращает форматированный вывод.
+    Эта функция упрощает вызов из GUI: подключается, выполняет сценарий, отключается.
+    """
     if not controller.connect():
         return "Ошибка: Не удалось подключиться к стенду"
 
-    # Шаг 1: Инициализация SPI
-    lines.append("Шаг 1: Инициализация SPI1")
-    result = controller.execute_command("InitSpi", {
-        "spi_num": 1,
-        "speed": 1000000,
-        "mode": 0,
-        "bit_order": 0
-    })
-
-    if not result['success']:
-        lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-        controller.disconnect()
-        return "\n".join(lines)
-    lines.append("SPI инициализирован")
-    lines.append("")
-
-    # Шаг 2: Проверка версии чипа
-    lines.append("Шаг 2: Проверка версии чипа")
-    # Для CC1101: читаем регистр 0x0F (VERSION)
-    # Формируем 64 байта для отправки: первый байт - команда чтения (0x0F), остальные - dummy (0x00)
-    tx_data = [0x0F] + [0x00] * 63  # 64 байта
-
-    result = controller.execute_command("SpiExchange", {
-        "spi_num": 1,
-        "tx_len": 64,  # Отправляем все 64 байта
-        "tx_data": tx_data
-    })
-
-    if result['success']:
-        rx_data = result['response_data'].get('rx_data', [])
-        if len(rx_data) >= 2:
-            version = rx_data[1]  # Второй байт - ответ
-            lines.append(f"Версия чипа: 0x{version:02X}")
-        else:
-            lines.append("Данные получены, но недостаточной длины")
-            controller.disconnect()
-            return "\n".join(lines)
-    else:
-        lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-        controller.disconnect()
-        return "\n".join(lines)
-
-    lines.append("")
-    lines.append("Тест пройден успешно!")
-
+    results = controller.run_scenario(scenario_path)
     controller.disconnect()
-    return "\n".join(lines)
+
+    return format_scenario_results(results)
