@@ -322,7 +322,7 @@ class I2cWriteRegister:
         arr_len = 8
         if len(self.data) != arr_len:
             raise ValueError(f"Array data must have length {arr_len}")
-        result += struct.pack('<B', *self.data)
+        result += struct.pack('<{}B'.format(arr_len), *self.data)
         return result
 
 class I2cWrite:
@@ -348,7 +348,7 @@ class I2cWrite:
         arr_len = 64
         if len(self.data) != arr_len:
             raise ValueError(f"Array data must have length {arr_len}")
-        result += struct.pack('<B', *self.data)
+        result += struct.pack('<{}B'.format(arr_len), *self.data)
         return result
 
 class I2cRead:
@@ -393,7 +393,7 @@ class SpiSend:
         arr_len = 64
         if len(self.data) != arr_len:
             raise ValueError(f"Array data must have length {arr_len}")
-        result += struct.pack('<B', *self.data)
+        result += struct.pack('<{}B'.format(arr_len), *self.data)
         return result
 
 class SpiReceive:
@@ -438,7 +438,7 @@ class SpiExchange:
         arr_len = 64
         if len(self.tx_data) != arr_len:
             raise ValueError(f"Array tx_data must have length {arr_len}")
-        result += struct.pack('<B', *self.tx_data)
+        result += struct.pack('<{}B'.format(arr_len), *self.tx_data)
         return result
 
 class UartSend:
@@ -464,7 +464,7 @@ class UartSend:
         arr_len = 64
         if len(self.data) != arr_len:
             raise ValueError(f"Array data must have length {arr_len}")
-        result += struct.pack('<B', *self.data)
+        result += struct.pack('<{}B'.format(arr_len), *self.data)
         return result
 
 class UartReceive:

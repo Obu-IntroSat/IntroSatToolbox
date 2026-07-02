@@ -86,7 +86,7 @@ class {{ cmd.name }}:
         arr_len = {{ field.type|replace('uint8[', '')|replace(']', '')|int }}
         if len(self.{{ field.name }}) != arr_len:
             raise ValueError(f"Array {{ field.name }} must have length {arr_len}")
-        result += struct.pack('<{{ arr_len }}B', *self.{{ field.name }})
+        result += struct.pack('<{}B'.format(arr_len), *self.{{ field.name }})
         {% else %}
         result += _pack_value(self.{{ field.name }}, '{{ field.type }}')
         {% endif %}

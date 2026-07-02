@@ -1,0 +1,50 @@
+name: "Тестирование CC1101 (SPI)"
+description: |
+  Проверка работоспособности радиочипа CC1101 через SPI.
+  Шаги:
+  1. Инициализация SPI1 (1 МГц, режим 0, MSB first)
+  2. Инициализация пина PA2 как output push-pull (CS)
+  3. Установка CS в низкий уровень (активация)
+  4. Чтение регистра версии (адрес 0x30, чтение = 0xB0) через SPI Exchange
+  5. Установка CS в высокий уровень (деактивация)
+  6. Деинициализация SPI1
+
+steps:
+  - description: "Инициализация SPI1 (частота 1 МГц, режим 0, MSB first)"
+    command: InitSpi
+    params:
+      spi_num: 1
+      speed: 1000000
+      mode: 0
+      bit_order: 0
+
+  - description: "Инициализация пина PA2 как output push-pull (CS)"
+    command: GpioInitOutput
+    params:
+      pin: 2
+      initial_state: 1
+      open_drain: 0
+
+  - description: "Установка CS в низкий уровень (активация чипа)"
+    command: GpioSet
+    params:
+      pin: 2
+      value: 0
+
+  - description: "Чтение регистра версии (адрес 0x30, чтение = 0xB0), получение данных"
+    command: SpiExchange
+    params:
+      spi_num: 1
+      tx_len: 2
+      tx_data: [0xB0, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+
+  - description: "Установка CS в высокий уровень (деактивация)"
+    command: GpioSet
+    params:
+      pin: 2
+      value: 1
+
+  - description: "Деинициализация SPI1"
+    command: DeinitSpi
+    params:
+      spi_num: 1
