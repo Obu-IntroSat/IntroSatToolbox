@@ -1,7 +1,8 @@
 # Copy this whole folder to create a new app, then rename:
-#   - the folder            packages/app_template -> packages/app_<name>
-#   - the package folder     app_template          -> app_<name>
-#   - the name / entry point / script below
+# - the folder            packages/app_template -> packages/app_<name>
+# - the package folder     app_template          -> app_<name>
+# - the name / entry point / script below
+
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
@@ -19,11 +20,11 @@ dependencies = [
 ]
 
 [project.entry-points."introsat.apps"]
-camera_vibe2k26summer = "CAMERA_VIBE2K26SUMMER.plugin:CameraPlugin"
+camera_vibe2k26summer = "camera_vibe2k26summer.plugin:CameraPlugin"
 
 [project.scripts]
-camera-vibe2k26summer = "CAMERA_VIBE2K26SUMMER.__main__:main"
+camera-vibe2k26summer = "camera_vibe2k26summer.main:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["CAMERA_VIBE2K26SUMMER*"]
+include = ["camera_vibe2k26summer*"]
