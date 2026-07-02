@@ -117,7 +117,7 @@ class {{ cmd.name }}:
         {% for field in cmd.fields %}
         {% if field.type.startswith('uint8[') %}
         arr_len = {{ field.type|replace('uint8[', '')|replace(']', '')|int }}
-        self.{{ field.name }} = list(struct.unpack('<{{ arr_len }}B', data[offset:offset+arr_len]))
+        self.{{ field.name }} = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
         {% else %}
         self.{{ field.name }} = _unpack_value(data[offset:], '{{ field.type }}')

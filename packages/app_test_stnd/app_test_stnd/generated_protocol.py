@@ -45,7 +45,6 @@ SPIEXCHANGERESPONSE_CODE = 211
 UARTRECEIVERESPONSE_CODE = 212
 GENERICRESPONSE_CODE = 250
 
-
 # ---------- Вспомогательные функции ----------
 def _pack_value(value, field_type):
     """Упаковка одного значения в байты (для простых типов)."""
@@ -68,7 +67,6 @@ def _pack_value(value, field_type):
     else:
         raise ValueError(f"Unsupported type: {field_type}")
 
-
 def _unpack_value(data, field_type):
     """Распаковка из байтов (для простых типов)."""
     if field_type == 'uint8':
@@ -90,7 +88,6 @@ def _unpack_value(data, field_type):
     else:
         raise ValueError(f"Unsupported type: {field_type}")
 
-
 # ---------- Классы запросов ----------
 class GetVersion:
     """
@@ -105,7 +102,6 @@ class GetVersion:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
         return result
-
 
 class GetStatus:
     """
@@ -757,7 +753,7 @@ class EepromReadResponse:
             'float32': 'f', 'bool': '?'
         }['uint8'])
         arr_len = 64
-        self.data = list(struct.unpack('<B', data[offset:offset+arr_len]))
+        self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
 class I2cProbeResponse:
@@ -823,7 +819,7 @@ class I2cReadRegisterResponse:
             'float32': 'f', 'bool': '?'
         }['uint8'])
         arr_len = 8
-        self.data = list(struct.unpack('<B', data[offset:offset+arr_len]))
+        self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
 class I2cReadResponse:
@@ -858,7 +854,7 @@ class I2cReadResponse:
             'float32': 'f', 'bool': '?'
         }['uint8'])
         arr_len = 64
-        self.data = list(struct.unpack('<B', data[offset:offset+arr_len]))
+        self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
 class SpiReceiveResponse:
@@ -893,7 +889,7 @@ class SpiReceiveResponse:
             'float32': 'f', 'bool': '?'
         }['uint8'])
         arr_len = 64
-        self.data = list(struct.unpack('<B', data[offset:offset+arr_len]))
+        self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
 class SpiExchangeResponse:
@@ -928,7 +924,7 @@ class SpiExchangeResponse:
             'float32': 'f', 'bool': '?'
         }['uint8'])
         arr_len = 64
-        self.rx_data = list(struct.unpack('<B', data[offset:offset+arr_len]))
+        self.rx_data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
 class UartReceiveResponse:
@@ -963,7 +959,7 @@ class UartReceiveResponse:
             'float32': 'f', 'bool': '?'
         }['uint8'])
         arr_len = 64
-        self.data = list(struct.unpack('<B', data[offset:offset+arr_len]))
+        self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
 class GenericResponse:
