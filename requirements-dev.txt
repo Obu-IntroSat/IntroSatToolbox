@@ -3,6 +3,7 @@
 -e packages/core
 -e packages/app_comms
 -e packages/app_firmware
+-e packages/app_test_stnd
 -e packages/app_template
 -e shell
 
