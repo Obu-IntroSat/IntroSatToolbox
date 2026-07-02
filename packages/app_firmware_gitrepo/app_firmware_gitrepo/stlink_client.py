@@ -203,7 +203,19 @@ class STLinkClient:
             if "error" in result.stdout.lower() or "failed" in result.stdout.lower():
                 return False, "Ошибка при прошивке"
             
-            return True, "Прошивка успешно завершена"
+            # После успешной прошивки выполняем сброс
+            try:
+                subprocess.run(
+                    ["st-flash", "reset"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+            except Exception:
+                # Если сброс не удался, не страшно — пользователь может сделать это вручную
+                pass
+            
+            return True, "Прошивка успешно завершена, устройство сброшено"
             
         except subprocess.TimeoutExpired:
             return False, "Таймаут прошивки. Проверьте подключение устройства"

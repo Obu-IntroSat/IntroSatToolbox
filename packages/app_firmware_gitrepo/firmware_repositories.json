@@ -13,7 +13,15 @@
       "description": "no description",
       "device": "device",
       "file_pattern": "firmware-pl_psm_1.x-*.elf"
+    },
+    {
+      "name": "firmware-bluepill_blink",
+      "url": "https://github.com/Obu-IntroSat/firmware-bluepill_blink",
+      "description": "no description",
+      "device": "device",
+      "file_pattern": "firmware-bluepill_blink_1.x-*.bin"
     }
+    
   ],
   "settings": {
     "local_storage": ".introsat/firmware",

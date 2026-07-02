@@ -140,7 +140,7 @@ class FirmwareGitRepoWidget(QWidget):
         self.refresh_btn.clicked.connect(self.refresh_firmware_list)
         btn_layout.addWidget(self.refresh_btn)
         
-        self.repo_status = QLabel("⚪ Готов")
+        self.repo_status = QLabel("Готов")
         btn_layout.addWidget(self.repo_status)
         btn_layout.addStretch()
         repo_layout.addLayout(btn_layout)
@@ -209,7 +209,7 @@ class FirmwareGitRepoWidget(QWidget):
         self.connect_btn.clicked.connect(self.connect_device)
         connect_layout.addWidget(self.connect_btn)
         
-        self.device_status = QLabel("⚪ Устройство не подключено")
+        self.device_status = QLabel("Устройство не подключено")
         connect_layout.addWidget(self.device_status)
         connect_layout.addStretch()
         device_layout.addLayout(connect_layout)
@@ -305,7 +305,7 @@ class FirmwareGitRepoWidget(QWidget):
         if info["available"]:
             self.stlink_status_label.setText(f"ST-Link: доступен (версия {info['version']})")
             if info["connected"]:
-                self.stlink_status_label.setText(f"ST-Link: устройство уже подключено")
+                self.stlink_status_label.setText("ST-Link: устройство уже подключено")
         else:
             self.stlink_status_label.setText("ST-Link: не найден")
     
@@ -418,7 +418,7 @@ class FirmwareGitRepoWidget(QWidget):
             
             self.device_connected = True
             self.log(f"{message}")
-            self.device_status.setText("🟢 Устройство подключено")
+            self.device_status.setText("Устройство подключено")
             
             # Фильтруем список прошивок
             self.filter_firmware_list()
@@ -427,7 +427,7 @@ class FirmwareGitRepoWidget(QWidget):
         else:
             self.log(f"{message}")
             self.device_connected = False
-            self.device_status.setText("🔴 Ошибка подключения")
+            self.device_status.setText("Ошибка подключения")
             self.device_info_text.clear()
             self.device_info_text.appendPlainText("Не удалось подключиться к устройству\n\n")
             self.device_info_text.appendPlainText("Проверьте:")
@@ -480,10 +480,10 @@ class FirmwareGitRepoWidget(QWidget):
         self.refresh_btn.setEnabled(False)
         
         self.progress.setVisible(True)
-        self.progress.setRange(0, 0)  # Indeterminate
+        self.progress.setRange(0, 0)
         self.progress.setFormat("Прошивка...")
         
-        self.log(f"⚡ Начинаем прошивку: {Path(self.current_firmware_path).name}")
+        self.log(f"Начинаем прошивку: {Path(self.current_firmware_path).name}")
         
         # Запускаем прошивку в отдельном потоке
         worker = FlashWorker(
@@ -502,10 +502,15 @@ class FirmwareGitRepoWidget(QWidget):
         self.progress.setFormat("%p%")
         
         if success:
-            self.log(f"✅ {message}")
-            QMessageBox.information(self, "Успех", "Прошивка выполнена успешно!")
+            self.log(f"{message}")
+            QMessageBox.information(
+                self, 
+                "Успех", 
+                "Прошивка выполнена успешно!\n\n"
+                "Если светодиод не мигает — отключите и снова подключите питание устройства."
+            )
         else:
-            self.log(f"❌ {message}")
+            self.log(f"Ошибка: {message}")
             QMessageBox.critical(self, "Ошибка", f"Прошивка не удалась:\n{message}")
         
         self.is_flashing = False
