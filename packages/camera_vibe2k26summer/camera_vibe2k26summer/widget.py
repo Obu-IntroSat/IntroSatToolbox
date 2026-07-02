@@ -215,14 +215,13 @@ class CreateConfigDialog(QDialog):
         
         layout.addLayout(form)
         
-        # Подсказка
+        # Подсказка (без стилей)
         hint = QLabel(
             "💡 Команды можно указывать как:\n"
             "  • символ: t, p, n\n"
             "  • hex: 0x74, 0x70, 0x6E\n"
             "  • число: 116, 112, 110"
         )
-        hint.setStyleSheet("color: #666; font-size: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px;")
         layout.addWidget(hint)
         
         buttons = QDialogButtonBox(
@@ -284,6 +283,9 @@ class CameraWorker(QThread):
         self._prop_struct = struct.Struct('<HHHHHHLH')
         self._width = 640
         self._height = 480
+        self._v_start = 0
+        self._h_start = 0
+        self._exposure = 0
     
     def set_config(self, config: CameraCommandConfig):
         self.config = config
@@ -432,11 +434,27 @@ class CameraWorker(QThread):
                 return
             
             props = self._parse_properties(data)
+            
+            # Сохраняем полученные значения
+            if 'v_start' in props:
+                self._v_start = props['v_start']
+            if 'h_start' in props:
+                self._h_start = props['h_start']
+            if 'exposure' in props:
+                self._exposure = props['exposure']
+            if 'width' in props:
+                self._width = props['width']
+            if 'height' in props:
+                self._height = props['height']
+            
             self.properties_received.emit(props)
             
             if props.get('chunks', 0) > 0:
                 self.log.emit(f"✅ {props.get('width', 0)}x{props.get('height', 0)}, "
                             f"{props.get('chunks', 0)} чанков")
+                self.log.emit(f"   vStart={props.get('v_start', 0)}, "
+                            f"hStart={props.get('h_start', 0)}, "
+                            f"Эксп={props.get('exposure', 0)}")
             else:
                 self.log.emit("ℹ️ Нет снимка")
             
@@ -470,11 +488,24 @@ class CameraWorker(QThread):
             width = props.get('width', 0)
             total_chunks = props.get('chunks', 0)
             
+            # Сохраняем параметры обрезки и экспозиции
+            if 'v_start' in props:
+                self._v_start = props['v_start']
+            if 'h_start' in props:
+                self._h_start = props['h_start']
+            if 'exposure' in props:
+                self._exposure = props['exposure']
+            if width > 0:
+                self._width = width
+            if height > 0:
+                self._height = height
+            
             if total_chunks == 0:
                 self.error.emit("Нет снимка")
                 return
             
             self.log.emit(f"📦 {width}x{height}, {total_chunks} чанков")
+            self.log.emit(f"   vStart={self._v_start}, hStart={self._h_start}, Эксп={self._exposure}")
             
             image_data = bytearray()
             expected = width * height
@@ -585,12 +616,21 @@ class CameraWorker(QThread):
             cmd = self.config.get_command_bytes(self.config.set_exposure)
             cmd += struct.pack('<H', exp)
             self._write(cmd)
+            self._exposure = exp
             self.log.emit(f"🔆 {'Авто' if exp == 0 else exp}")
             time.sleep(0.05)
     
     def set_crop(self, v_start: int, h_start: int):
         if self.ser and self.ser.is_open:
+            # Отправляем команду обрезки (если есть отдельная команда)
+            # Пока просто логируем, т.к. в протоколе может не быть отдельной команды
+            self._v_start = v_start
+            self._h_start = h_start
             self.log.emit(f"✂️ vStart={v_start}, hStart={h_start}")
+            # Если есть команда для обрезки, можно добавить:
+            # cmd = self.config.get_command_bytes('c')  # предполагаем команда 'c' для обрезки
+            # cmd += struct.pack('<HH', v_start, h_start)
+            # self._write(cmd)
 
 
 # ============================================================================
@@ -608,10 +648,9 @@ class ZoomableImageLabel(QLabel):
         self._max_zoom = 10.0
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumHeight(300)
-        self.setStyleSheet(
-            "background-color: #1a1a1a; border: 2px solid #333; border-radius: 6px;"
-        )
         self.setScaledContents(False)
+        # Устанавливаем objectName для стилизации через глобальный QSS
+        self.setObjectName("image_label")
     
     def set_image(self, pixmap: QPixmap):
         """Установка изображения"""
@@ -678,6 +717,7 @@ class CameraWidget(QWidget):
         self.current_height = 480
         self.current_v_start = 0
         self.current_h_start = 0
+        self.current_exposure = 0
         
         # Сначала создаем UI
         self.setup_ui()
@@ -731,13 +771,10 @@ class CameraWidget(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(8)
         
-        # Заголовок
+        # Заголовок (без inline-стилей)
         title = QLabel("📷 ИЩИ СЕБЯ В ПРОШМАНДОВКАХ АЗЕРБАЙДЖАНА🫦")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet(
-            "font-size: 18px; font-weight: bold; padding: 8px; "
-            "background-color: #2d2d2d; color: white; border-radius: 4px;"
-        )
+        title.setObjectName("camera_title")
         main_layout.addWidget(title)
         
         # Верхняя панель управления
@@ -751,18 +788,17 @@ class CameraWidget(QWidget):
         config_layout.setSpacing(5)
         config_layout.addWidget(QLabel("Профиль:"))
         self.config_combo = QComboBox()
+        self.config_combo.setMinimumWidth(150)
         self.config_combo.currentIndexChanged.connect(self.on_config_changed)
         config_layout.addWidget(self.config_combo)
         
         self.add_config_btn = QPushButton("➕")
         self.add_config_btn.setToolTip("Создать новую конфигурацию")
-        self.add_config_btn.setFixedWidth(30)
         self.add_config_btn.clicked.connect(self.create_config)
         config_layout.addWidget(self.add_config_btn)
         
         self.load_config_btn = QPushButton("📂")
         self.load_config_btn.setToolTip("Загрузить конфигурацию из файла")
-        self.load_config_btn.setFixedWidth(30)
         self.load_config_btn.clicked.connect(self.load_config_file)
         config_layout.addWidget(self.load_config_btn)
         
@@ -775,12 +811,11 @@ class CameraWidget(QWidget):
         conn_layout.setSpacing(5)
         
         self.port_combo = QComboBox()
-        self.port_combo.setMinimumWidth(80)
+        self.port_combo.setMinimumWidth(120)
         conn_layout.addWidget(QLabel("Порт:"))
         conn_layout.addWidget(self.port_combo)
         
         self.refresh_btn = QPushButton("🔄")
-        self.refresh_btn.setFixedWidth(30)
         self.refresh_btn.clicked.connect(self.refresh_ports)
         conn_layout.addWidget(self.refresh_btn)
         
@@ -803,51 +838,54 @@ class CameraWidget(QWidget):
         # Настройки
         settings_group = QGroupBox("Настройки")
         settings_layout = QGridLayout(settings_group)
-        settings_layout.setSpacing(5)
+        settings_layout.setSpacing(8)
         
+        # Ширина
         settings_layout.addWidget(QLabel("Ширина:"), 0, 0)
         self.width_spin = QSpinBox()
         self.width_spin.setRange(1, 1280)
         self.width_spin.setValue(640)
-        self.width_spin.setFixedWidth(60)
+        self.width_spin.setMinimumWidth(80)
         settings_layout.addWidget(self.width_spin, 0, 1)
         
+        # Высота
         settings_layout.addWidget(QLabel("Высота:"), 0, 2)
         self.height_spin = QSpinBox()
         self.height_spin.setRange(1, 1024)
         self.height_spin.setValue(480)
-        self.height_spin.setFixedWidth(60)
+        self.height_spin.setMinimumWidth(80)
         settings_layout.addWidget(self.height_spin, 0, 3)
         
-        self.set_size_btn = QPushButton("Размер")
+        self.set_size_btn = QPushButton("Применить")
         self.set_size_btn.clicked.connect(self.apply_resolution)
-        self.set_size_btn.setFixedWidth(60)
         settings_layout.addWidget(self.set_size_btn, 0, 4)
         
+        # vStart
         settings_layout.addWidget(QLabel("vStart:"), 1, 0)
         self.v_start_spin = QSpinBox()
         self.v_start_spin.setRange(0, 1000)
-        self.v_start_spin.setFixedWidth(60)
+        self.v_start_spin.setValue(0)
+        self.v_start_spin.setMinimumWidth(80)
         settings_layout.addWidget(self.v_start_spin, 1, 1)
         
+        # hStart
         settings_layout.addWidget(QLabel("hStart:"), 1, 2)
         self.h_start_spin = QSpinBox()
         self.h_start_spin.setRange(0, 1000)
-        self.h_start_spin.setFixedWidth(60)
+        self.h_start_spin.setValue(0)
+        self.h_start_spin.setMinimumWidth(80)
         settings_layout.addWidget(self.h_start_spin, 1, 3)
         
-        # УВЕЛИЧЕННАЯ КНОПКА "Обрезка"
-        self.set_crop_btn = QPushButton("Обрезка")
+        self.set_crop_btn = QPushButton("Обрезать")
         self.set_crop_btn.clicked.connect(self.apply_crop)
-        self.set_crop_btn.setFixedWidth(80)  # Было 60
-        self.set_crop_btn.setMinimumHeight(30)  # Добавлено
         settings_layout.addWidget(self.set_crop_btn, 1, 4)
         
-        settings_layout.addWidget(QLabel("Эксп:"), 2, 0)
+        # Экспозиция
+        settings_layout.addWidget(QLabel("Экспозиция:"), 2, 0)
         self.exposure_spin = QSpinBox()
         self.exposure_spin.setRange(0, 509)
         self.exposure_spin.setValue(0)
-        self.exposure_spin.setFixedWidth(60)
+        self.exposure_spin.setMinimumWidth(80)
         settings_layout.addWidget(self.exposure_spin, 2, 1)
         
         self.auto_exp_check = QCheckBox("Авто")
@@ -855,17 +893,15 @@ class CameraWidget(QWidget):
         self.auto_exp_check.toggled.connect(self.toggle_auto_exposure)
         settings_layout.addWidget(self.auto_exp_check, 2, 2)
         
-        # УВЕЛИЧЕННАЯ КНОПКА "Экспозиция"
-        self.set_exp_btn = QPushButton("Экспозиция")
+        self.set_exp_btn = QPushButton("Установить")
         self.set_exp_btn.clicked.connect(self.apply_exposure)
-        self.set_exp_btn.setFixedWidth(90)  # Было 70
-        self.set_exp_btn.setMinimumHeight(30)  # Добавлено
         settings_layout.addWidget(self.set_exp_btn, 2, 3)
         
         control_layout.addWidget(settings_group)
         
-        # Кнопки управления (оставляем как было)
+        # Кнопки управления
         control_btns = QHBoxLayout()
+        control_btns.setSpacing(8)
         
         self.capture_btn = QPushButton("📸 Снимок")
         self.capture_btn.clicked.connect(self.capture_image)
@@ -899,9 +935,8 @@ class CameraWidget(QWidget):
         self.progress_bar.setFixedHeight(20)
         control_layout.addWidget(self.progress_bar)
         
-        # Статус
+        # Статус (без inline-стилей)
         self.status_label = QLabel("Готов к работе")
-        self.status_label.setStyleSheet("padding: 2px; color: #666;")
         control_layout.addWidget(self.status_label)
         
         control_layout.addStretch()
@@ -934,11 +969,10 @@ class CameraWidget(QWidget):
         zoom_layout.addWidget(self.zoom_slider)
         
         self.zoom_label = QLabel("100%")
-        self.zoom_label.setFixedWidth(50)
+        self.zoom_label.setMinimumWidth(50)
         zoom_layout.addWidget(self.zoom_label)
         
         self.reset_zoom_btn = QPushButton("1:1")
-        self.reset_zoom_btn.setFixedWidth(40)
         self.reset_zoom_btn.clicked.connect(self.reset_zoom)
         zoom_layout.addWidget(self.reset_zoom_btn)
         
@@ -952,7 +986,7 @@ class CameraWidget(QWidget):
         # Информация
         self.image_info = QLabel("")
         self.image_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.image_info.setStyleSheet("color: #666; font-size: 10px;")
+        self.image_info.setObjectName("image_info")
         image_container_layout.addWidget(self.image_info)
         
         image_layout.addWidget(image_container)
@@ -965,14 +999,10 @@ class CameraWidget(QWidget):
         
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setStyleSheet(
-            "background-color: #1e1e1e; color: #d4d4d4; "
-            "font-family: monospace; font-size: 10px;"
-        )
-        self.log_text.setMaximumHeight(150)
+        self.log_text.setObjectName("log_text")
         log_layout.addWidget(self.log_text)
         
-        clear_log_btn = QPushButton("Очистить")
+        clear_log_btn = QPushButton("Очистить логи")
         clear_log_btn.clicked.connect(lambda: self.log_text.clear())
         log_layout.addWidget(clear_log_btn)
         
@@ -1102,7 +1132,6 @@ class CameraWidget(QWidget):
             self.is_connected = True
             self.connect_btn.setText("🔌 Отключить")
             self.status_label.setText("✅ Подключен")
-            self.status_label.setStyleSheet("color: #4CAF50;")
             self.capture_btn.setEnabled(True)
             self.download_btn.setEnabled(True)
             self.props_btn.setEnabled(True)
@@ -1120,7 +1149,6 @@ class CameraWidget(QWidget):
         self.is_connected = False
         self.connect_btn.setText("🔌 Подключить")
         self.status_label.setText("⛔ Отключен")
-        self.status_label.setStyleSheet("color: #f44336;")
         self.capture_btn.setEnabled(False)
         self.download_btn.setEnabled(False)
         self.props_btn.setEnabled(False)
@@ -1168,12 +1196,14 @@ class CameraWidget(QWidget):
     def apply_exposure(self):
         if self.worker:
             exp = self.exposure_spin.value()
+            self.current_exposure = exp
             self.worker.set_exposure(exp)
     
     def toggle_auto_exposure(self, checked):
         self.exposure_spin.setEnabled(not checked)
         if checked:
             self.exposure_spin.setValue(0)
+            self.current_exposure = 0
             if self.worker:
                 self.worker.set_exposure(0)
     
@@ -1202,6 +1232,7 @@ class CameraWidget(QWidget):
                 f.write(f"Размер: {w}x{h}\n")
                 f.write(f"vStart: {self.current_v_start}\n")
                 f.write(f"hStart: {self.current_h_start}\n")
+                f.write(f"Экспозиция: {self.current_exposure}\n")
                 f.write(f"Дата: {datetime.now()}\n")
             
             QMessageBox.information(self, "Сохранено", 
@@ -1259,9 +1290,33 @@ class CameraWidget(QWidget):
     
     def show_properties(self, props):
         if props.get('chunks', 0) > 0:
+            # Обновляем поля с полученными значениями
+            if 'width' in props:
+                self.current_width = props['width']
+                self.width_spin.setValue(props['width'])
+            if 'height' in props:
+                self.current_height = props['height']
+                self.height_spin.setValue(props['height'])
+            if 'v_start' in props:
+                self.current_v_start = props['v_start']
+                self.v_start_spin.setValue(props['v_start'])
+            if 'h_start' in props:
+                self.current_h_start = props['h_start']
+                self.h_start_spin.setValue(props['h_start'])
+            if 'exposure' in props:
+                self.current_exposure = props['exposure']
+                self.exposure_spin.setValue(props['exposure'])
+                if props['exposure'] == 0:
+                    self.auto_exp_check.setChecked(True)
+                else:
+                    self.auto_exp_check.setChecked(False)
+            
             msg = (f"Снимок: {props.get('width', 0)}×{props.get('height', 0)}\n"
                    f"Чанков: {props.get('chunks', 0)}\n"
-                   f"Размер: {props.get('length', 0)} байт")
+                   f"Размер: {props.get('length', 0)} байт\n"
+                   f"vStart: {props.get('v_start', 0)}\n"
+                   f"hStart: {props.get('h_start', 0)}\n"
+                   f"Экспозиция: {props.get('exposure', 0)}")
         else:
             msg = "Нет снимка"
         QMessageBox.information(self, "Свойства", msg)
