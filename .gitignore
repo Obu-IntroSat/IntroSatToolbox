@@ -17,3 +17,8 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+
+captures/
+packages/camera_vibe2k26summer/captures/
+packages/camera_vibe2k26summer/configs/

@@ -33,6 +33,7 @@ class CameraCommandConfig:
     """Конфигурация команд для модуля камеры"""
     name: str
     description: str = ""
+    version: str = ""  # Версия прошивки для автоматического определения
     
     # Команды
     capture: str = "t"
@@ -41,6 +42,7 @@ class CameraCommandConfig:
     set_size: str = "s"
     set_exposure: str = "e"
     start_transfer: str = "r"
+    get_version: str = "v"  # Команда запроса версии
     
     # Параметры протокола
     baudrate: int = 230400
@@ -50,6 +52,7 @@ class CameraCommandConfig:
     property_size: int = 18
     timeout_capture: float = 15.0
     timeout_chunk: float = 2.0
+    timeout_version: float = 1.0  # Таймаут для запроса версии
     
     # Форматы структур
     property_format: str = "<HHHHHHLH"
@@ -69,12 +72,14 @@ class CameraCommandConfig:
         return {
             'name': self.name,
             'description': self.description,
+            'version': self.version,
             'capture': self.capture,
             'properties': self.properties,
             'next_chunk': self.next_chunk,
             'set_size': self.set_size,
             'set_exposure': self.set_exposure,
             'start_transfer': self.start_transfer,
+            'get_version': self.get_version,
             'baudrate': self.baudrate,
             'preamble': self.preamble,
             'postamble': self.postamble,
@@ -82,6 +87,7 @@ class CameraCommandConfig:
             'property_size': self.property_size,
             'timeout_capture': self.timeout_capture,
             'timeout_chunk': self.timeout_chunk,
+            'timeout_version': self.timeout_version,
             'property_format': self.property_format,
             'chunk_format': self.chunk_format
         }
@@ -91,12 +97,14 @@ class CameraCommandConfig:
         return cls(
             name=data.get('name', 'Unknown'),
             description=data.get('description', ''),
+            version=data.get('version', ''),
             capture=data.get('capture', 't'),
             properties=data.get('properties', 'p'),
             next_chunk=data.get('next_chunk', 'n'),
             set_size=data.get('set_size', 's'),
             set_exposure=data.get('set_exposure', 'e'),
             start_transfer=data.get('start_transfer', 'r'),
+            get_version=data.get('get_version', 'v'),
             baudrate=data.get('baudrate', 230400),
             preamble=data.get('preamble', 'ffff00'),
             postamble=data.get('postamble', '00ff00'),
@@ -104,6 +112,7 @@ class CameraCommandConfig:
             property_size=data.get('property_size', 18),
             timeout_capture=data.get('timeout_capture', 15.0),
             timeout_chunk=data.get('timeout_chunk', 2.0),
+            timeout_version=data.get('timeout_version', 1.0),
             property_format=data.get('property_format', '<HHHHHHLH'),
             chunk_format=data.get('chunk_format', '<HH?240BB')
         )
@@ -135,6 +144,10 @@ class CreateConfigDialog(QDialog):
         self.desc_edit.setPlaceholderText("Описание конфигурации")
         form.addRow("Описание:", self.desc_edit)
         
+        self.version_edit = QLineEdit()
+        self.version_edit.setPlaceholderText("Например: 2.0.1")
+        form.addRow("Версия прошивки:", self.version_edit)
+        
         # Группа команд
         cmd_group = QGroupBox("Команды")
         cmd_layout = QGridLayout(cmd_group)
@@ -162,6 +175,10 @@ class CreateConfigDialog(QDialog):
         self.start_transfer_edit = QLineEdit("r")
         cmd_layout.addWidget(QLabel("Начать передачу:"), 2, 2)
         cmd_layout.addWidget(self.start_transfer_edit, 2, 3)
+        
+        self.get_version_edit = QLineEdit("v")
+        cmd_layout.addWidget(QLabel("Версия:"), 3, 0)
+        cmd_layout.addWidget(self.get_version_edit, 3, 1)
         
         form.addRow(cmd_group)
         
@@ -197,6 +214,10 @@ class CreateConfigDialog(QDialog):
         proto_layout.addWidget(QLabel("Таймаут чанка:"), 3, 0)
         proto_layout.addWidget(self.timeout_chunk_edit, 3, 1)
         
+        self.timeout_version_edit = QLineEdit("1.0")
+        proto_layout.addWidget(QLabel("Таймаут версии:"), 3, 2)
+        proto_layout.addWidget(self.timeout_version_edit, 3, 3)
+        
         form.addRow(proto_group)
         
         # Форматы структур
@@ -215,12 +236,13 @@ class CreateConfigDialog(QDialog):
         
         layout.addLayout(form)
         
-        # Подсказка (без стилей)
+        # Подсказка
         hint = QLabel(
             "💡 Команды можно указывать как:\n"
             "  • символ: t, p, n\n"
             "  • hex: 0x74, 0x70, 0x6E\n"
-            "  • число: 116, 112, 110"
+            "  • число: 116, 112, 110\n"
+            "  • версия: укажите версию прошивки для автоопределения"
         )
         layout.addWidget(hint)
         
@@ -237,12 +259,14 @@ class CreateConfigDialog(QDialog):
         return CameraCommandConfig(
             name=self.name_edit.text(),
             description=self.desc_edit.text(),
+            version=self.version_edit.text(),
             capture=self.capture_edit.text(),
             properties=self.properties_edit.text(),
             next_chunk=self.next_chunk_edit.text(),
             set_size=self.set_size_edit.text(),
             set_exposure=self.set_exposure_edit.text(),
             start_transfer=self.start_transfer_edit.text(),
+            get_version=self.get_version_edit.text(),
             baudrate=int(self.baudrate_edit.text()),
             preamble=self.preamble_edit.text(),
             postamble=self.postamble_edit.text(),
@@ -250,6 +274,7 @@ class CreateConfigDialog(QDialog):
             property_size=int(self.property_size_edit.text()),
             timeout_capture=float(self.timeout_capture_edit.text()),
             timeout_chunk=float(self.timeout_chunk_edit.text()),
+            timeout_version=float(self.timeout_version_edit.text()),
             property_format=self.property_format_edit.text(),
             chunk_format=self.chunk_format_edit.text()
         )
@@ -268,6 +293,7 @@ class CameraWorker(QThread):
     error = Signal(str)
     properties_received = Signal(dict)
     capture_complete = Signal()
+    version_received = Signal(str)
     
     def __init__(self):
         super().__init__()
@@ -286,6 +312,7 @@ class CameraWorker(QThread):
         self._v_start = 0
         self._h_start = 0
         self._exposure = 0
+        self._firmware_version = ""
     
     def set_config(self, config: CameraCommandConfig):
         self.config = config
@@ -315,6 +342,64 @@ class CameraWorker(QThread):
             self.ser.close()
         self.ser = None
         self.log.emit("⏹ Отключено")
+    
+    def get_version(self) -> str:
+        """Запрос версии прошивки"""
+        if not self.ser or not self.ser.is_open:
+            self.log.emit("⚠️ Порт не открыт")
+            return ""
+        
+        try:
+            self.log.emit(f"📡 Запрос версии (команда: {self.config.get_version})...")
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+            
+            cmd_bytes = self.config.get_command_bytes(self.config.get_version)
+            self.log.emit(f"   → Отправка: {cmd_bytes.hex() if len(cmd_bytes) <= 4 else cmd_bytes.hex()[:10] + '...'}")
+            self._write(cmd_bytes)
+            self.ser.flush()
+            
+            preamble = bytes.fromhex(self.config.preamble)
+            start_time = time.time()
+            response = b""
+            attempts = 0
+            
+            while (time.time() - start_time) < self.config.timeout_version:
+                if self.ser.in_waiting > 0:
+                    data = self.ser.read(self.ser.in_waiting)
+                    response += data
+                    attempts += 1
+                    if preamble in response:
+                        idx = response.find(preamble) + len(preamble)
+                        version_data = response[idx:idx+20]
+                        version = ""
+                        for b in version_data:
+                            if 32 <= b <= 126:
+                                version += chr(b)
+                            else:
+                                break
+                        if version:
+                            self._firmware_version = version.strip()
+                            self.log.emit(f"   ← Получено: {response.hex()[:30]}...")
+                            self.log.emit(f"   ✅ Версия: {version}")
+                            self.version_received.emit(version)
+                            return version
+                        else:
+                            self.log.emit(f"   ⚠️ Версия не распознана: {version_data}")
+                            break
+                    elif attempts % 5 == 0:
+                        self.log.emit(f"   ⏳ Ожидание ответа... ({int(time.time() - start_time)}с)")
+                time.sleep(0.01)
+            
+            self.log.emit(f"⚠️ Таймаут запроса версии ({self.config.timeout_version}с)")
+            self.log.emit(f"   Получено: {len(response)} байт")
+            if response:
+                self.log.emit(f"   Данные: {response.hex()[:50]}{'...' if len(response) > 50 else ''}")
+            return ""
+            
+        except Exception as e:
+            self.log.emit(f"⚠️ Ошибка запроса версии: {e}")
+            return ""
     
     def _write(self, data: bytes):
         if self.ser and self.ser.is_open:
@@ -368,7 +453,31 @@ class CameraWorker(QThread):
                 self._do_download()
             elif self.current_command == 'properties':
                 self._do_properties()
+            elif self.current_command == 'get_version':
+                self._do_get_version()
             time.sleep(0.01)
+    
+    def _do_get_version(self):
+        """Выполнение запроса версии"""
+        self.is_busy = True
+        try:
+            self.log.emit("📡 Отправка запроса версии...")
+            version = self.get_version()
+            if version:
+                self.log.emit(f"✅ Версия получена: {version}")
+                self.version_received.emit(version)
+            else:
+                self.log.emit("⚠️ Не удалось получить версию")
+                self.log.emit("   🔄 Будет использован профиль по умолчанию")
+                self.version_received.emit("unknown")
+        except Exception as e:
+            self.log.emit(f"❌ Ошибка запроса версии: {e}")
+            self.error.emit(str(e))
+            self.version_received.emit("unknown")
+        finally:
+            self.is_busy = False
+            self.current_command = None
+            self.finished.emit()
     
     def _do_capture(self):
         self.is_busy = True
@@ -435,7 +544,6 @@ class CameraWorker(QThread):
             
             props = self._parse_properties(data)
             
-            # Сохраняем полученные значения
             if 'v_start' in props:
                 self._v_start = props['v_start']
             if 'h_start' in props:
@@ -467,6 +575,7 @@ class CameraWorker(QThread):
             self.finished.emit()
     
     def _do_download(self):
+        """Загрузка изображения с улучшенным прогресс-баром"""
         self.is_busy = True
         try:
             self.log.emit("📥 Загрузка...")
@@ -488,7 +597,6 @@ class CameraWorker(QThread):
             width = props.get('width', 0)
             total_chunks = props.get('chunks', 0)
             
-            # Сохраняем параметры обрезки и экспозиции
             if 'v_start' in props:
                 self._v_start = props['v_start']
             if 'h_start' in props:
@@ -520,6 +628,11 @@ class CameraWorker(QThread):
             chunk_buffer = self._chunk_buffer
             chunk_total = chunk_size + 8
             
+            # Переменные для отслеживания прогресса
+            bytes_received = 0
+            last_progress = -1
+            last_log_time = time.time()
+            
             for chunk_idx in range(total_chunks):
                 if not self.running:
                     break
@@ -543,6 +656,7 @@ class CameraWorker(QThread):
                     time.sleep(0.0005)
                 
                 if read_total < chunk_total:
+                    self.log.emit(f"⚠️ Чанк {chunk_idx+1}: получено {read_total}/{chunk_total} байт")
                     continue
                 
                 try:
@@ -553,30 +667,49 @@ class CameraWorker(QThread):
                     payload = chunk_buffer[5:5+payload_len]
                     image_data.extend(payload)
                     
-                    progress = int((chunk_idx + 1) / total_chunks * 100)
-                    self.progress.emit(progress)
+                    # Обновляем количество полученных байт
+                    bytes_received += payload_len
                     
-                    if chunk_idx % 5 == 0 or is_last:
+                    # Вычисляем прогресс на основе реальных данных
+                    if expected > 0:
+                        progress = int(min(100, (bytes_received / expected) * 100))
+                    else:
+                        progress = int((chunk_idx + 1) / total_chunks * 100)
+                    
+                    # Отправляем прогресс только если он изменился
+                    if progress != last_progress:
+                        self.progress.emit(progress)
+                        last_progress = progress
+                    
+                    # Отправляем частичное изображение и логируем прогресс
+                    current_time = time.time()
+                    if chunk_idx % 5 == 0 or is_last or progress >= 100 or (current_time - last_log_time) > 1.0:
                         self.partial_image.emit(bytes(image_data), width, height)
-                        self.log.emit(f"📦 {chunk_idx+1}/{total_chunks} ({progress}%)")
+                        self.log.emit(f"📦 {chunk_idx+1}/{total_chunks} ({progress}%) | {bytes_received}/{expected} байт")
+                        last_log_time = current_time
                     
                     if is_last:
                         break
                     
-                except Exception:
+                except Exception as e:
+                    self.log.emit(f"⚠️ Ошибка разбора чанка {chunk_idx+1}: {e}")
                     continue
                 
                 if len(image_data) >= expected:
                     break
             
+            # Финальная проверка - если мы не получили все данные
             if len(image_data) < expected:
+                self.log.emit(f"⚠️ Получено {len(image_data)} из {expected} байт, дополняем нулями")
                 image_data.extend(b'\x00' * (expected - len(image_data)))
+                # Отправляем финальный прогресс
+                self.progress.emit(100)
             
-            self.log.emit(f"✅ Загрузка завершена")
+            self.log.emit(f"✅ Загрузка завершена ({len(image_data)} байт)")
             self.image_data.emit(bytes(image_data))
             
         except Exception as e:
-            self.log.emit(f"❌ {e}")
+            self.log.emit(f"❌ Ошибка загрузки: {e}")
             self.error.emit(str(e))
         finally:
             self.is_busy = False
@@ -602,6 +735,12 @@ class CameraWorker(QThread):
             if not self.isRunning():
                 self.start()
     
+    def start_get_version(self):
+        if not self.is_busy:
+            self.current_command = 'get_version'
+            if not self.isRunning():
+                self.start()
+    
     def set_resolution(self, w: int, h: int):
         if self.ser and self.ser.is_open:
             cmd = self.config.get_command_bytes(self.config.set_size)
@@ -622,15 +761,9 @@ class CameraWorker(QThread):
     
     def set_crop(self, v_start: int, h_start: int):
         if self.ser and self.ser.is_open:
-            # Отправляем команду обрезки (если есть отдельная команда)
-            # Пока просто логируем, т.к. в протоколе может не быть отдельной команды
             self._v_start = v_start
             self._h_start = h_start
             self.log.emit(f"✂️ vStart={v_start}, hStart={h_start}")
-            # Если есть команда для обрезки, можно добавить:
-            # cmd = self.config.get_command_bytes('c')  # предполагаем команда 'c' для обрезки
-            # cmd += struct.pack('<HH', v_start, h_start)
-            # self._write(cmd)
 
 
 # ============================================================================
@@ -649,7 +782,6 @@ class ZoomableImageLabel(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setMinimumHeight(300)
         self.setScaledContents(False)
-        # Устанавливаем objectName для стилизации через глобальный QSS
         self.setObjectName("image_label")
     
     def set_image(self, pixmap: QPixmap):
@@ -712,36 +844,46 @@ class CameraWidget(QWidget):
         self.is_connected = False
         self.current_config = CameraCommandConfig("CM 2.0")
         self.configs: Dict[str, CameraCommandConfig] = {}
+        self.current_firmware_version = ""
+        self.auto_profile_selected = False
         
+        # Текущие настройки (применяются к следующему снимку)
         self.current_width = 640
         self.current_height = 480
         self.current_v_start = 0
         self.current_h_start = 0
         self.current_exposure = 0
         
-        # Сначала создаем UI
+        # Параметры последнего захваченного снимка (фиксируются при захвате)
+        self.captured_width = 640
+        self.captured_height = 480
+        self.captured_v_start = 0
+        self.captured_h_start = 0
+        self.captured_exposure = 0
+        
         self.setup_ui()
         
-        # Потом загружаем конфигурации
         self.load_default_configs()
         self.load_configs_from_folder()
         
         self.refresh_ports()
         self.add_log("🚀 Универсальная камера запущена")
         self.add_log("💡 Используйте колесико мыши для зума")
+        self.add_log("ℹ️ Настройки применяются к следующему снимку")
     
     def load_default_configs(self):
         """Загрузка конфигурации по умолчанию"""
         self.configs["CM 2.0"] = CameraCommandConfig(
             name="CM 2.0",
-            description="Стандартная камера CM 2.0"
+            description="Стандартная камера CM 2.0",
+            version="default"
         )
         self.current_config = self.configs["CM 2.0"]
         self.update_config_list()
     
     def load_configs_from_folder(self):
         """Загрузка конфигураций из папки configs"""
-        config_dir = Path.cwd() / "configs"
+        config_dir = Path(__file__).parent / "configs"
         if not config_dir.exists():
             config_dir.mkdir(exist_ok=True)
             example_path = config_dir / "example_config.json"
@@ -749,8 +891,10 @@ class CameraWidget(QWidget):
                 example = CameraCommandConfig(
                     name="Example Camera",
                     description="Пример конфигурации",
+                    version="2.0.1",
                     capture="t", properties="p", next_chunk="n",
-                    set_size="s", set_exposure="e", start_transfer="r"
+                    set_size="s", set_exposure="e", start_transfer="r",
+                    get_version="v"
                 )
                 with open(example_path, 'w', encoding='utf-8') as f:
                     json.dump(example.to_dict(), f, indent=2, ensure_ascii=False)
@@ -761,7 +905,7 @@ class CameraWidget(QWidget):
                     data = json.load(f)
                 config = CameraCommandConfig.from_dict(data)
                 self.configs[config.name] = config
-                self.add_log(f"📂 Загружена конфигурация: {config.name}")
+                self.add_log(f"📂 Загружена конфигурация: {config.name} (v{config.version})")
             except Exception as e:
                 self.add_log(f"⚠️ Ошибка загрузки {json_path.name}: {e}")
         
@@ -771,18 +915,15 @@ class CameraWidget(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(8)
         
-        # Заголовок (без inline-стилей)
         title = QLabel("📷 ИЩИ СЕБЯ В ПРОШМАНДОВКАХ АЗЕРБАЙДЖАНА🫦")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setObjectName("camera_title")
         main_layout.addWidget(title)
         
-        # Верхняя панель управления
         control_panel = QWidget()
         control_layout = QHBoxLayout(control_panel)
         control_layout.setSpacing(10)
         
-        # Конфигурация
         config_widget = QWidget()
         config_layout = QHBoxLayout(config_widget)
         config_layout.setSpacing(5)
@@ -805,7 +946,6 @@ class CameraWidget(QWidget):
         control_layout.addWidget(config_widget)
         control_layout.addStretch()
         
-        # Подключение
         conn_widget = QWidget()
         conn_layout = QHBoxLayout(conn_widget)
         conn_layout.setSpacing(5)
@@ -827,20 +967,16 @@ class CameraWidget(QWidget):
         
         main_layout.addWidget(control_panel)
         
-        # Основной сплиттер
         splitter = QSplitter(Qt.Orientation.Vertical)
         
-        # Верхняя часть - управление
         control_widget = QWidget()
         control_layout = QVBoxLayout(control_widget)
         control_layout.setSpacing(5)
         
-        # Настройки
-        settings_group = QGroupBox("Настройки")
+        settings_group = QGroupBox("Настройки (применяются к следующему снимку)")
         settings_layout = QGridLayout(settings_group)
         settings_layout.setSpacing(8)
         
-        # Ширина
         settings_layout.addWidget(QLabel("Ширина:"), 0, 0)
         self.width_spin = QSpinBox()
         self.width_spin.setRange(1, 1280)
@@ -848,7 +984,6 @@ class CameraWidget(QWidget):
         self.width_spin.setMinimumWidth(80)
         settings_layout.addWidget(self.width_spin, 0, 1)
         
-        # Высота
         settings_layout.addWidget(QLabel("Высота:"), 0, 2)
         self.height_spin = QSpinBox()
         self.height_spin.setRange(1, 1024)
@@ -860,7 +995,6 @@ class CameraWidget(QWidget):
         self.set_size_btn.clicked.connect(self.apply_resolution)
         settings_layout.addWidget(self.set_size_btn, 0, 4)
         
-        # vStart
         settings_layout.addWidget(QLabel("vStart:"), 1, 0)
         self.v_start_spin = QSpinBox()
         self.v_start_spin.setRange(0, 1000)
@@ -868,7 +1002,6 @@ class CameraWidget(QWidget):
         self.v_start_spin.setMinimumWidth(80)
         settings_layout.addWidget(self.v_start_spin, 1, 1)
         
-        # hStart
         settings_layout.addWidget(QLabel("hStart:"), 1, 2)
         self.h_start_spin = QSpinBox()
         self.h_start_spin.setRange(0, 1000)
@@ -880,7 +1013,6 @@ class CameraWidget(QWidget):
         self.set_crop_btn.clicked.connect(self.apply_crop)
         settings_layout.addWidget(self.set_crop_btn, 1, 4)
         
-        # Экспозиция
         settings_layout.addWidget(QLabel("Экспозиция:"), 2, 0)
         self.exposure_spin = QSpinBox()
         self.exposure_spin.setRange(0, 509)
@@ -897,9 +1029,18 @@ class CameraWidget(QWidget):
         self.set_exp_btn.clicked.connect(self.apply_exposure)
         settings_layout.addWidget(self.set_exp_btn, 2, 3)
         
+        settings_layout.addWidget(QLabel("Версия:"), 3, 0)
+        self.version_label = QLabel("неизвестно")
+        self.version_label.setObjectName("version_label")
+        settings_layout.addWidget(self.version_label, 3, 1, 1, 2)
+        
+        # Подсказка о применении настроек
+        hint_label = QLabel("ℹ️ Настройки применяются к следующему снимку")
+        hint_label.setStyleSheet("color: #888; font-size: 10px; font-style: italic;")
+        settings_layout.addWidget(hint_label, 3, 3, 1, 2)
+        
         control_layout.addWidget(settings_group)
         
-        # Кнопки управления
         control_btns = QHBoxLayout()
         control_btns.setSpacing(8)
         
@@ -914,6 +1055,7 @@ class CameraWidget(QWidget):
         control_btns.addWidget(self.download_btn)
         
         self.props_btn = QPushButton("ℹ Свойства")
+        self.props_btn.setToolTip("Параметры снимка в памяти МК")
         self.props_btn.clicked.connect(self.get_properties)
         self.props_btn.setEnabled(False)
         control_btns.addWidget(self.props_btn)
@@ -929,23 +1071,19 @@ class CameraWidget(QWidget):
         
         control_layout.addLayout(control_btns)
         
-        # Прогресс
         self.progress_bar = QProgressBar()
         self.progress_bar.setVisible(False)
         self.progress_bar.setFixedHeight(20)
         control_layout.addWidget(self.progress_bar)
         
-        # Статус (без inline-стилей)
         self.status_label = QLabel("Готов к работе")
         control_layout.addWidget(self.status_label)
         
         control_layout.addStretch()
         splitter.addWidget(control_widget)
         
-        # Нижняя часть - вкладки
         tabs = QTabWidget()
         
-        # Вкладка изображения
         image_tab = QWidget()
         image_layout = QVBoxLayout(image_tab)
         image_layout.setContentsMargins(5, 5, 5, 5)
@@ -954,7 +1092,6 @@ class CameraWidget(QWidget):
         image_container_layout = QVBoxLayout(image_container)
         image_container_layout.setSpacing(5)
         
-        # Ползунок зума
         zoom_widget = QWidget()
         zoom_layout = QHBoxLayout(zoom_widget)
         zoom_layout.setSpacing(5)
@@ -979,11 +1116,9 @@ class CameraWidget(QWidget):
         zoom_layout.addStretch()
         image_container_layout.addWidget(zoom_widget)
         
-        # Изображение
         self.image_label = ZoomableImageLabel()
         image_container_layout.addWidget(self.image_label)
         
-        # Информация
         self.image_info = QLabel("")
         self.image_info.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_info.setObjectName("image_info")
@@ -992,7 +1127,6 @@ class CameraWidget(QWidget):
         image_layout.addWidget(image_container)
         tabs.addTab(image_tab, "🖼 Изображение")
         
-        # Вкладка логов
         log_tab = QWidget()
         log_layout = QVBoxLayout(log_tab)
         log_layout.setContentsMargins(5, 5, 5, 5)
@@ -1047,9 +1181,9 @@ class CameraWidget(QWidget):
             self.configs[config.name] = config
             self.update_config_list()
             self.config_combo.setCurrentText(config.name)
-            self.add_log(f"✅ Создана конфигурация: {config.name}")
+            self.add_log(f"✅ Создана конфигурация: {config.name} (v{config.version})")
             
-            config_dir = Path.cwd() / "configs"
+            config_dir = Path(__file__).parent / "configs"
             config_dir.mkdir(exist_ok=True)
             file_path = config_dir / f"{config.name.replace(' ', '_')}.json"
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -1069,7 +1203,7 @@ class CameraWidget(QWidget):
                 self.configs[config.name] = config
                 self.update_config_list()
                 self.config_combo.setCurrentText(config.name)
-                self.add_log(f"✅ Загружена конфигурация: {config.name}")
+                self.add_log(f"✅ Загружена конфигурация: {config.name} (v{config.version})")
             except Exception as e:
                 self.add_log(f"❌ Ошибка загрузки: {e}")
                 QMessageBox.critical(self, "Ошибка", str(e))
@@ -1116,6 +1250,8 @@ class CameraWidget(QWidget):
             QMessageBox.warning(self, "Ошибка", "Выберите порт")
             return
         
+        self.add_log(f"🔌 Подключение к {port}...")
+        
         self.worker = CameraWorker()
         self.worker.set_config(self.current_config)
         
@@ -1127,6 +1263,7 @@ class CameraWidget(QWidget):
         self.worker.properties_received.connect(self.show_properties)
         self.worker.finished.connect(self.on_worker_finished)
         self.worker.capture_complete.connect(self.on_capture_complete)
+        self.worker.version_received.connect(self.on_version_received)
         
         if self.worker.connect(port):
             self.is_connected = True
@@ -1135,7 +1272,13 @@ class CameraWidget(QWidget):
             self.capture_btn.setEnabled(True)
             self.download_btn.setEnabled(True)
             self.props_btn.setEnabled(True)
-            self.add_log("✅ Готов к работе")
+            
+            self.add_log("🔍 Определение версии прошивки...")
+            self.add_log("   ⏳ Пожалуйста, подождите...")
+            self.auto_profile_selected = False
+            self.worker.start_get_version()
+        else:
+            self.add_log("❌ Не удалось подключиться к порту")
     
     def disconnect(self):
         if self.worker:
@@ -1154,69 +1297,184 @@ class CameraWidget(QWidget):
         self.props_btn.setEnabled(False)
         self.save_btn.setEnabled(False)
         self.progress_bar.setVisible(False)
+        self.version_label.setText("неизвестно")
+        self.current_firmware_version = ""
+    
+    def on_version_received(self, version: str):
+        """Обработка полученной версии"""
+        self.current_firmware_version = version
+        self.version_label.setText(version)
+        
+        self.add_log("")
+        self.add_log("═" * 50)
+        self.add_log(f"📡 ПОЛУЧЕНА ВЕРСИЯ ПРОШИВКИ: {version}")
+        self.add_log("═" * 50)
+        
+        found = False
+        matched_configs = []
+        
+        for name, config in self.configs.items():
+            if config.version and config.version == version:
+                matched_configs.append((name, config))
+        
+        if len(matched_configs) == 1:
+            name, config = matched_configs[0]
+            self.config_combo.setCurrentText(name)
+            self.current_config = config
+            if self.worker:
+                self.worker.set_config(self.current_config)
+            self.add_log(f"✅ Найден профиль для версии {version}:")
+            self.add_log(f"   📝 Название: {name}")
+            self.add_log(f"   📝 Описание: {config.description}")
+            self.add_log(f"   📝 Команды: снимок={config.capture}, свойства={config.properties}")
+            found = True
+        elif len(matched_configs) > 1:
+            self.add_log(f"⚠️ Найдено несколько профилей для версии {version}:")
+            for i, (name, config) in enumerate(matched_configs, 1):
+                self.add_log(f"   {i}. {name} - {config.description}")
+            name, config = matched_configs[0]
+            self.config_combo.setCurrentText(name)
+            self.current_config = config
+            if self.worker:
+                self.worker.set_config(self.current_config)
+            self.add_log(f"   ➡️ Автоматически выбран: {name}")
+            found = True
+        else:
+            self.add_log(f"⚠️ Профиль для версии '{version}' НЕ НАЙДЕН")
+            self.add_log("   🔄 Используется профиль по умолчанию: CM 2.0")
+            
+            available = [f"{name} (v{config.version})" for name, config in self.configs.items() if config.version]
+            if available:
+                self.add_log(f"   📋 Доступные профили с версиями:")
+                for av in available:
+                    self.add_log(f"      • {av}")
+            else:
+                self.add_log("   📋 Нет профилей с указанной версией")
+            
+            self.config_combo.setCurrentText("CM 2.0")
+            self.current_config = self.configs.get("CM 2.0", CameraCommandConfig("CM 2.0"))
+            if self.worker:
+                self.worker.set_config(self.current_config)
+            
+            self.add_log("   💡 Создайте профиль для этой версии:")
+            self.add_log("      1. Нажмите кнопку '➕ Создать'")
+            self.add_log("      2. Укажите название и версию прошивки")
+            self.add_log("      3. Настройте команды и параметры")
+        
+        self.add_log("")
+        self.add_log("📋 ТЕКУЩИЙ ПРОФИЛЬ:")
+        self.add_log(f"   Название: {self.current_config.name}")
+        self.add_log(f"   Версия: {self.current_config.version or 'default'}")
+        self.add_log(f"   Описание: {self.current_config.description or '—'}")
+        self.add_log(f"   Команды:")
+        self.add_log(f"      • Снимок:     {self.current_config.capture}")
+        self.add_log(f"      • Свойства:   {self.current_config.properties}")
+        self.add_log(f"      • Версия:     {self.current_config.get_version}")
+        self.add_log(f"      • Размер:     {self.current_config.set_size}")
+        self.add_log(f"      • Экспозиция: {self.current_config.set_exposure}")
+        self.add_log(f"   Параметры:")
+        self.add_log(f"      • Baudrate:   {self.current_config.baudrate}")
+        self.add_log(f"      • Преамбула:  {self.current_config.preamble}")
+        self.add_log(f"      • Размер чанка: {self.current_config.chunk_size}")
+        self.add_log("═" * 50)
+        
+        if found:
+            self.status_label.setText(f"✅ Подключен (v{version}) - {self.current_config.name}")
+            self.add_log(f"✅ Готов к работе с профилем: {self.current_config.name}")
+        else:
+            self.status_label.setText(f"⚠️ Подключен (v{version}) - CM 2.0 (default)")
+            self.add_log("⚠️ Работа в режиме совместимости (CM 2.0)")
     
     # ------------------------------------------------------------------------
     # Действия
     # ------------------------------------------------------------------------
     
     def capture_image(self):
-        if self.worker:
+        if self.worker and self.is_connected:
             self.capture_btn.setEnabled(False)
             self.download_btn.setEnabled(False)
-            self.add_log("📸 Запуск захвата...")
+            
+            # ЗАПОМИНАЕМ ПАРАМЕТРЫ СНИМКА В МОМЕНТ ЗАХВАТА
+            self.captured_width = self.current_width
+            self.captured_height = self.current_height
+            self.captured_v_start = self.current_v_start
+            self.captured_h_start = self.current_h_start
+            self.captured_exposure = self.current_exposure
+            
+            self.add_log("─" * 50)
+            self.add_log("📸 ЗАХВАТ СНИМКА")
+            self.add_log(f"   Размер: {self.captured_width}×{self.captured_height}")
+            self.add_log(f"   Обрезка: vStart={self.captured_v_start}, hStart={self.captured_h_start}")
+            self.add_log(f"   Экспозиция: {'Авто' if self.captured_exposure == 0 else self.captured_exposure}")
+            self.add_log("─" * 50)
+            
             self.worker.start_capture()
     
     def get_properties(self):
-        if self.worker:
+        if self.worker and self.is_connected:
+            self.add_log("📊 Запрос свойств снимка...")
             self.worker.start_properties()
     
     def download_image(self):
-        if self.worker:
+        if self.worker and self.is_connected:
             self.progress_bar.setVisible(True)
             self.progress_bar.setValue(0)
             self.download_btn.setEnabled(False)
             self.capture_btn.setEnabled(False)
-            self.add_log("📥 Загрузка...")
+            self.props_btn.setEnabled(False)  # Блокируем свойства во время загрузки
+            self.add_log("📥 Загрузка снимка...")
             self.worker.start_download()
     
     def apply_resolution(self):
-        if self.worker:
+        if self.worker and self.is_connected:
             w = self.width_spin.value()
             h = self.height_spin.value()
             self.current_width = w
             self.current_height = h
             self.worker.set_resolution(w, h)
+            self.add_log(f"📐 Размер установлен: {w}×{h} (применится к следующему снимку)")
+            self.status_label.setText(f"📐 {w}×{h} (следующий снимок)")
     
     def apply_crop(self):
         self.current_v_start = self.v_start_spin.value()
         self.current_h_start = self.h_start_spin.value()
-        if self.worker:
+        if self.worker and self.is_connected:
             self.worker.set_crop(self.current_v_start, self.current_h_start)
+            self.add_log(f"✂️ Обрезка: vStart={self.current_v_start}, hStart={self.current_h_start} (применится к следующему снимку)")
+            self.status_label.setText(f"✂️ vStart={self.current_v_start}, hStart={self.current_h_start}")
     
     def apply_exposure(self):
-        if self.worker:
+        if self.worker and self.is_connected:
             exp = self.exposure_spin.value()
             self.current_exposure = exp
             self.worker.set_exposure(exp)
+            if exp == 0:
+                self.add_log("🔆 Режим автоэкспозиции (применится к следующему снимку)")
+                self.status_label.setText("🔆 Автоэкспозиция")
+            else:
+                self.add_log(f"🔆 Экспозиция: {exp} (применится к следующему снимку)")
+                self.status_label.setText(f"🔆 Экспозиция: {exp}")
     
     def toggle_auto_exposure(self, checked):
         self.exposure_spin.setEnabled(not checked)
         if checked:
             self.exposure_spin.setValue(0)
             self.current_exposure = 0
-            if self.worker:
+            if self.worker and self.is_connected:
                 self.worker.set_exposure(0)
+                self.add_log("🔆 Включен режим автоэкспозиции (применится к следующему снимку)")
     
     def save_image(self):
         if not self.image_data:
             return
         
-        save_dir = Path.cwd() / "captures"
+        save_dir = Path(__file__).parent / "captures"
         save_dir.mkdir(exist_ok=True)
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         
-        w = self.current_width
-        h = self.current_height
+        # Используем параметры ЗАХВАЧЕННОГО снимка
+        w = self.captured_width
+        h = self.captured_height
         data = self.image_data[:w*h]
         
         try:
@@ -1229,10 +1487,11 @@ class CameraWidget(QWidget):
             with open(info_path, 'w', encoding='utf-8') as f:
                 f.write(f"=== Снимок ===\n")
                 f.write(f"Профиль: {self.current_config.name}\n")
+                f.write(f"Версия прошивки: {self.current_firmware_version}\n")
                 f.write(f"Размер: {w}x{h}\n")
-                f.write(f"vStart: {self.current_v_start}\n")
-                f.write(f"hStart: {self.current_h_start}\n")
-                f.write(f"Экспозиция: {self.current_exposure}\n")
+                f.write(f"vStart: {self.captured_v_start}\n")
+                f.write(f"hStart: {self.captured_h_start}\n")
+                f.write(f"Экспозиция: {self.captured_exposure}\n")
                 f.write(f"Дата: {datetime.now()}\n")
             
             QMessageBox.information(self, "Сохранено", 
@@ -1260,21 +1519,42 @@ class CameraWidget(QWidget):
     
     def show_partial_image(self, data, w, h):
         try:
-            expected = w * h
+            # Используем параметры ЗАХВАЧЕННОГО снимка, а не текущие настройки
+            expected = self.captured_width * self.captured_height
             show = data[:expected]
             if len(show) < expected:
                 show += b'\x00' * (expected - len(show))
-            img = QImage(show, w, h, w, QImage.Format_Grayscale8)
+            img = QImage(show, self.captured_width, self.captured_height, 
+                        self.captured_width, QImage.Format_Grayscale8)
             pix = QPixmap.fromImage(img)
             self.image_label.set_image(pix)
-            percent = int(len(data) / expected * 100) if expected > 0 else 0
-            self.image_info.setText(f"Загрузка... {percent}% ({len(data)}/{expected})")
+            
+            # Вычисляем процент на основе реальных данных
+            if expected > 0:
+                percent = int(min(100, (len(data) / expected) * 100))
+            else:
+                percent = 0
+            
+            # Показываем прогресс с параметрами ЗАХВАЧЕННОГО снимка
+            self.image_info.setText(
+                f"📥 Загрузка... {percent}% | "
+                f"{self.captured_width}×{self.captured_height} | "
+                f"{len(data)}/{expected} байт | "
+                f"vStart={self.captured_v_start} hStart={self.captured_h_start} | "
+                f"Эксп={self.captured_exposure}"
+            )
+            
+            # Обновляем прогресс-бар напрямую
+            self.progress_bar.setValue(percent)
+            
         except Exception as e:
             self.add_log(f"⚠️ {e}")
     
     def display_image(self, data):
         self.image_data = data
-        w, h = self.current_width, self.current_height
+        # Используем параметры ЗАХВАЧЕННОГО снимка
+        w = self.captured_width
+        h = self.captured_height
         try:
             img_data = data[:w*h]
             if len(img_data) < w*h:
@@ -1282,61 +1562,74 @@ class CameraWidget(QWidget):
             img = QImage(img_data, w, h, w, QImage.Format_Grayscale8)
             pix = QPixmap.fromImage(img)
             self.image_label.set_image(pix)
-            self.image_info.setText(f"✅ {w}×{h} | {len(data)} байт")
+            
+            # Показываем параметры ЗАХВАЧЕННОГО снимка
+            self.image_info.setText(
+                f"✅ {w}×{h} | vStart={self.captured_v_start} hStart={self.captured_h_start} | "
+                f"Эксп={self.captured_exposure} | {len(data)} байт"
+            )
             self.save_btn.setEnabled(True)
-            self.add_log(f"✅ Изображение загружено")
+            self.add_log(f"✅ Изображение загружено: {w}×{h}")
+            self.status_label.setText(f"✅ Снимок {w}×{h} загружен")
         except Exception as e:
             self.add_log(f"❌ {e}")
     
     def show_properties(self, props):
         if props.get('chunks', 0) > 0:
-            # Обновляем поля с полученными значениями
+            # Обновляем поля параметрами снимка
             if 'width' in props:
-                self.current_width = props['width']
                 self.width_spin.setValue(props['width'])
             if 'height' in props:
-                self.current_height = props['height']
                 self.height_spin.setValue(props['height'])
             if 'v_start' in props:
-                self.current_v_start = props['v_start']
                 self.v_start_spin.setValue(props['v_start'])
             if 'h_start' in props:
-                self.current_h_start = props['h_start']
                 self.h_start_spin.setValue(props['h_start'])
             if 'exposure' in props:
-                self.current_exposure = props['exposure']
                 self.exposure_spin.setValue(props['exposure'])
                 if props['exposure'] == 0:
                     self.auto_exp_check.setChecked(True)
                 else:
                     self.auto_exp_check.setChecked(False)
             
-            msg = (f"Снимок: {props.get('width', 0)}×{props.get('height', 0)}\n"
+            # Обновляем статус
+            self.status_label.setText(
+                f"📸 Параметры снимка: {props.get('width', 0)}×{props.get('height', 0)} | "
+                f"Эксп: {props.get('exposure', 0)}"
+            )
+            
+            msg = (f"📸 ПАРАМЕТРЫ СНИМКА В ПАМЯТИ:\n\n"
+                   f"Размер: {props.get('width', 0)}×{props.get('height', 0)}\n"
                    f"Чанков: {props.get('chunks', 0)}\n"
-                   f"Размер: {props.get('length', 0)} байт\n"
+                   f"Размер данных: {props.get('length', 0)} байт\n"
                    f"vStart: {props.get('v_start', 0)}\n"
                    f"hStart: {props.get('h_start', 0)}\n"
-                   f"Экспозиция: {props.get('exposure', 0)}")
+                   f"Экспозиция: {props.get('exposure', 0)}\n\n"
+                   f"ℹ️ Это параметры СНИМКА в памяти МК.\n"
+                   f"Новые настройки применятся к следующему снимку.")
         else:
-            msg = "Нет снимка"
-        QMessageBox.information(self, "Свойства", msg)
+            msg = "ℹ️ В памяти МК нет снимка"
+            self.status_label.setText("ℹ️ Нет снимка")
+        
+        QMessageBox.information(self, "Свойства снимка", msg)
     
     def on_capture_complete(self):
         self.capture_btn.setEnabled(True)
         self.download_btn.setEnabled(True)
-        self.add_log("✅ Снимок готов!")
+        self.add_log("✅ Снимок создан! Нажмите 'Скачать' для загрузки.")
+        self.status_label.setText("✅ Снимок готов к загрузке")
     
     def on_worker_finished(self):
         self.capture_btn.setEnabled(True)
         self.download_btn.setEnabled(True)
-        self.props_btn.setEnabled(True)
+        self.props_btn.setEnabled(True)  # Разблокируем свойства
         self.progress_bar.setVisible(False)
     
     def show_error(self, msg):
         self.add_log(f"❌ {msg}")
         self.capture_btn.setEnabled(True)
         self.download_btn.setEnabled(True)
-        self.props_btn.setEnabled(True)
+        self.props_btn.setEnabled(True)  # Разблокируем свойства
         self.progress_bar.setVisible(False)
         QMessageBox.critical(self, "Ошибка", msg)
     
