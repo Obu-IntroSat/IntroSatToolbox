@@ -32,17 +32,16 @@ class FlashWorkerSignals(QObject):
 class FlashWorker(QRunnable):
     """Worker для прошивки в отдельном потоке."""
     
-    def __init__(self, stlink: STLinkClient, firmware_path: str, verify: bool):
+    def __init__(self, stlink: STLinkClient, firmware_path: str):
         super().__init__()
         self.stlink = stlink
         self.firmware_path = firmware_path
-        self.verify = verify
         self.signals = FlashWorkerSignals()
     
     def run(self):
         """Запускает прошивку."""
         self.signals.progress.emit("Начинаем прошивку...")
-        success, message = self.stlink.flash(self.firmware_path, self.verify)
+        success, message = self.stlink.flash(self.firmware_path)
         self.signals.finished.emit(success, message)
 
 
@@ -56,7 +55,10 @@ class FirmwareGitRepoWidget(QWidget):
         self.config_file = Path(__file__).parent.parent / "firmware_repositories.json"
         self.storage_path = Path.home() / ".introsat" / "firmware"
         
-        # Токен для доступа к GitHub (из переменных окружения или файла)
+        # Файл с токеном (по умолчанию)
+        self.token_file = Path.home() / ".introsat" / ".github_token"
+        
+        # Токен для доступа к GitHub (загружается из файла)
         self.github_token = self._load_github_token()
         
         # Создаем менеджеры
@@ -79,44 +81,25 @@ class FirmwareGitRepoWidget(QWidget):
         self.check_stlink_status()
         self.refresh_firmware_list()
     
-    def _load_github_token(self) -> Optional[str]:
-        """Загружает GitHub токен из файла или переменных окружения."""
-        # 1. Пробуем из файла .github_token в папке пользователя
-        token_file = Path.home() / ".introsat" / ".github_token"
-        if token_file.exists():
+    def _load_github_token(self, file_path: Optional[Path] = None) -> Optional[str]:
+        """Загружает GitHub токен из указанного файла."""
+        path = file_path if file_path else self.token_file
+        if path.exists():
             try:
-                with open(token_file, 'r') as f:
+                with open(path, 'r', encoding='utf-8') as f:
                     token = f.read().strip()
                     if token:
                         return token
             except Exception:
                 pass
-        
-        # 2. Пробуем из переменной окружения
-        import os
-        token = os.environ.get('GITHUB_TOKEN')
-        if token:
-            return token
-        
-        # 3. Пробуем из файла рядом с приложением
-        token_file_local = Path(__file__).parent.parent / ".github_token"
-        if token_file_local.exists():
-            try:
-                with open(token_file_local, 'r') as f:
-                    token = f.read().strip()
-                    if token:
-                        return token
-            except Exception:
-                pass
-        
         return None
     
-    def _save_github_token(self, token: str):
-        """Сохраняет GitHub токен в файл."""
-        token_file = Path.home() / ".introsat" / ".github_token"
-        token_file.parent.mkdir(parents=True, exist_ok=True)
+    def _save_github_token(self, token: str, file_path: Optional[Path] = None):
+        """Сохраняет GitHub токен в указанный файл."""
+        path = file_path if file_path else self.token_file
+        path.parent.mkdir(parents=True, exist_ok=True)
         try:
-            with open(token_file, 'w') as f:
+            with open(path, 'w', encoding='utf-8') as f:
                 f.write(token.strip())
             return True
         except Exception:
@@ -127,15 +110,17 @@ class FirmwareGitRepoWidget(QWidget):
         # Создаем главный виджет с прокруткой
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
+        main_layout.setSpacing(5)
         
         # --- Управление прошивками ---
         repo_group = QGroupBox("Управление прошивками")
         repo_layout = QVBoxLayout()
+        repo_layout.setSpacing(3)
         
         # Кнопки управления
         btn_layout = QHBoxLayout()
         self.refresh_btn = QPushButton("Обновить прошивки")
-        self.refresh_btn.setMinimumHeight(30)
+        self.refresh_btn.setMinimumHeight(35)
         self.refresh_btn.clicked.connect(self.refresh_firmware_list)
         btn_layout.addWidget(self.refresh_btn)
         
@@ -144,17 +129,39 @@ class FirmwareGitRepoWidget(QWidget):
         btn_layout.addStretch()
         repo_layout.addLayout(btn_layout)
         
-        # Токен (опционально, для приватных репозиториев)
+        # Токен - строка ввода + кнопки
         token_layout = QHBoxLayout()
-        token_layout.addWidget(QLabel("GitHub Token:"))
+        token_layout.setSpacing(3)
+        
+        token_label = QLabel("GitHub токен:")
+        token_label.setFixedWidth(80)
+        token_layout.addWidget(token_label)
+        
+        # Ограничиваем ширину поля ввода токена
         self.token_edit = QLineEdit()
-        self.token_edit.setPlaceholderText("Введите токен для доступа к приватным репозиториям")
+        self.token_edit.setPlaceholderText("Введите токен")
         self.token_edit.setEchoMode(QLineEdit.Password)
+        self.token_edit.setFixedWidth(800)
         if self.github_token:
             self.token_edit.setText(self.github_token)
         self.token_edit.textChanged.connect(self.on_token_changed)
         token_layout.addWidget(self.token_edit)
         
+        # Кнопка показа токена (глазик)
+        self.toggle_visibility_btn = QPushButton("👁")
+        self.toggle_visibility_btn.setFixedSize(45, 32)
+        self.toggle_visibility_btn.setToolTip("Показать/скрыть токен")
+        self.toggle_visibility_btn.clicked.connect(self.toggle_token_visibility)
+        token_layout.addWidget(self.toggle_visibility_btn)
+        
+        # Кнопка выбора файла (папка)
+        self.token_file_btn = QPushButton("📂")
+        self.toggle_visibility_btn.setFixedSize(45, 32)
+        self.token_file_btn.setToolTip("Выбрать файл с токеном")
+        self.token_file_btn.clicked.connect(self.select_token_file)
+        token_layout.addWidget(self.token_file_btn)
+        
+        # Статус токена
         self.token_status = QLabel()
         if self.github_token:
             self.token_status.setText("Токен загружен")
@@ -163,6 +170,8 @@ class FirmwareGitRepoWidget(QWidget):
             self.token_status.setText("Токен не найден")
             self.token_status.setStyleSheet("color: orange;")
         token_layout.addWidget(self.token_status)
+        
+        token_layout.addStretch()
         repo_layout.addLayout(token_layout)
         
         # Список прошивок с фильтром
@@ -178,10 +187,10 @@ class FirmwareGitRepoWidget(QWidget):
         filter_layout.addStretch()
         repo_layout.addLayout(filter_layout)
         
-        # Список прошивок с ползунком
+        # Список прошивок
         self.firmware_list = QListWidget()
-        self.firmware_list.setMinimumHeight(200)
-        self.firmware_list.setMaximumHeight(300)
+        self.firmware_list.setMinimumHeight(100)
+        self.firmware_list.setMaximumHeight(150)
         self.firmware_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.firmware_list.itemSelectionChanged.connect(self.on_firmware_selected)
         self.firmware_list.itemDoubleClicked.connect(self.on_firmware_double_click)
@@ -193,6 +202,7 @@ class FirmwareGitRepoWidget(QWidget):
         # --- Подключение устройства ---
         device_group = QGroupBox("Подключение устройства")
         device_layout = QVBoxLayout()
+        device_layout.setSpacing(3)
         
         # Информация о ST-Link
         stlink_layout = QHBoxLayout()
@@ -204,7 +214,7 @@ class FirmwareGitRepoWidget(QWidget):
         # Кнопка подключения
         connect_layout = QHBoxLayout()
         self.connect_btn = QPushButton("Подключить устройство")
-        self.connect_btn.setMinimumHeight(30)
+        self.connect_btn.setMinimumHeight(35)
         self.connect_btn.clicked.connect(self.connect_device)
         connect_layout.addWidget(self.connect_btn)
         
@@ -216,8 +226,8 @@ class FirmwareGitRepoWidget(QWidget):
         # Информация об устройстве
         self.device_info_text = QPlainTextEdit()
         self.device_info_text.setReadOnly(True)
-        self.device_info_text.setMinimumHeight(120)
-        self.device_info_text.setMaximumHeight(180)
+        self.device_info_text.setMinimumHeight(100)
+        self.device_info_text.setMaximumHeight(140)
         self.device_info_text.setPlaceholderText("Информация об устройстве появится здесь после подключения")
         device_layout.addWidget(self.device_info_text)
         
@@ -227,11 +237,12 @@ class FirmwareGitRepoWidget(QWidget):
         # --- Прошивка ---
         flash_group = QGroupBox("Прошивка")
         flash_layout = QVBoxLayout()
+        flash_layout.setSpacing(3)
         
         flash_btn_layout = QHBoxLayout()
         self.flash_btn = QPushButton("Прошить выбранную прошивку")
         self.flash_btn.setEnabled(False)
-        self.flash_btn.setMinimumHeight(35)
+        self.flash_btn.setMinimumHeight(30)
         self.flash_btn.clicked.connect(self.flash_device)
         flash_btn_layout.addWidget(self.flash_btn)
         flash_btn_layout.addStretch()
@@ -247,6 +258,7 @@ class FirmwareGitRepoWidget(QWidget):
         # --- Лог ---
         log_group = QGroupBox("Лог операций")
         log_layout = QVBoxLayout()
+        log_layout.setSpacing(3)
         self.log_text = QPlainTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumBlockCount(1000)
@@ -254,6 +266,7 @@ class FirmwareGitRepoWidget(QWidget):
         # Кнопки управления логом
         log_btn_layout = QHBoxLayout()
         clear_log_btn = QPushButton("Очистить лог")
+        clear_log_btn.setMinimumHeight(35)
         clear_log_btn.clicked.connect(lambda: self.log_text.clear())
         log_btn_layout.addWidget(clear_log_btn)
         log_btn_layout.addStretch()
@@ -277,6 +290,42 @@ class FirmwareGitRepoWidget(QWidget):
         base_layout = QVBoxLayout(self)
         base_layout.setContentsMargins(0, 0, 0, 0)
         base_layout.addWidget(scroll)
+    
+    def toggle_token_visibility(self):
+        """Переключает видимость токена."""
+        if self.token_edit.echoMode() == QLineEdit.Password:
+            self.token_edit.setEchoMode(QLineEdit.Normal)
+            self.toggle_visibility_btn.setText("🙈")
+            self.toggle_visibility_btn.setToolTip("Скрыть токен")
+        else:
+            self.token_edit.setEchoMode(QLineEdit.Password)
+            self.toggle_visibility_btn.setText("👁")
+            self.toggle_visibility_btn.setToolTip("Показать токен")
+    
+    def select_token_file(self):
+        """Открывает диалог выбора файла с токеном."""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Выберите файл с GitHub токеном",
+            str(Path.home() / ".introsat"),
+            "Токен файлы (.github_token);;Текстовые файлы (*.txt);;Все файлы (*)"
+        )
+        
+        if file_path:
+            token = self._load_github_token(Path(file_path))
+            if token:
+                self.token_edit.setText(token)
+                self.token_file = Path(file_path)
+                self.token_status.setText(f"Токен загружен из {Path(file_path).name}")
+                self.token_status.setStyleSheet("color: green;")
+                self.log(f"Токен загружен из файла: {file_path}")
+            else:
+                QMessageBox.warning(
+                    self,
+                    "Ошибка",
+                    f"Не удалось прочитать токен из файла:\n{file_path}\n\n"
+                    "Убедитесь, что файл содержит только токен в первой строке."
+                )
 
     def on_token_changed(self, text: str):
         """Обработчик изменения токена."""
@@ -353,7 +402,10 @@ class FirmwareGitRepoWidget(QWidget):
             
             item_text = f"{fw['name']}"
             if version and version != "unknown":
-                item_text += f" ({version})"
+                if not version.startswith("v"):
+                    item_text += f" (v{version})"
+                else:
+                    item_text += f" ({version})"
             item_text += f" [{device}]"
             if repo:
                 item_text += f" [{repo}]"
@@ -462,8 +514,7 @@ class FirmwareGitRepoWidget(QWidget):
         
         worker = FlashWorker(
             self.stlink,
-            self.current_firmware_path,
-            True
+            self.current_firmware_path
         )
         worker.signals.progress.connect(self.log)
         worker.signals.finished.connect(self.flash_finished)
