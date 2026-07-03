@@ -173,7 +173,7 @@ class STLinkClient:
         
         Args:
             firmware_path: Путь к файлу прошивки
-            verify: Проверять после прошивки
+            verify: Проверять после прошивки (всегда False)
             
         Returns:
             (success, message)
@@ -185,10 +185,9 @@ class STLinkClient:
             return False, f"Файл прошивки не найден: {firmware_path}"
         
         try:
-            # Формируем команду
-            cmd = ["st-flash", "write", firmware_path, "0x8000000"]
-            if verify:
-                cmd.append("--verify")
+            # Формируем команду БЕЗ verify
+            # st-flash write <path> <addr>
+            cmd = ["st-flash", "write", firmware_path, "0x08000000"]
             
             # Выполняем прошивку
             result = subprocess.run(
@@ -212,7 +211,6 @@ class STLinkClient:
                     timeout=5
                 )
             except Exception:
-                # Если сброс не удался, не страшно — пользователь может сделать это вручную
                 pass
             
             return True, "Прошивка успешно завершена, устройство сброшено"
@@ -221,10 +219,7 @@ class STLinkClient:
             return False, "Таймаут прошивки. Проверьте подключение устройства"
         except subprocess.CalledProcessError as e:
             error_msg = e.stderr if e.stderr else str(e)
-            if "verify failed" in error_msg.lower():
-                return False, "Ошибка верификации прошивки"
-            else:
-                return False, f"Ошибка прошивки: {error_msg}"
+            return False, f"Ошибка прошивки: {error_msg}"
         except FileNotFoundError:
             return False, "st-flash не найден. Убедитесь, что ST-Link установлен"
         except Exception as e:

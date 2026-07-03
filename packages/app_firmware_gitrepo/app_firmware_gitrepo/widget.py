@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
     QLabel, QPlainTextEdit, QGroupBox, QListWidget,
     QListWidgetItem, QProgressBar, QMessageBox, QLineEdit,
-    QCheckBox, QComboBox, QSplitter, QFileDialog
+    QCheckBox, QComboBox, QSplitter, QFileDialog, QScrollArea
 )
 from PySide6.QtCore import QThreadPool, QRunnable
 
@@ -23,23 +23,27 @@ from .github_release_manager import GitHubReleaseManager
 from .stlink_client import STLinkClient
 
 
-class FlashWorker(QRunnable):
-    """Worker для прошивки в отдельном потоке."""
-    
+class FlashWorkerSignals(QObject):
+    """Сигналы для FlashWorker."""
     progress = Signal(str)
     finished = Signal(bool, str)
+
+
+class FlashWorker(QRunnable):
+    """Worker для прошивки в отдельном потоке."""
     
     def __init__(self, stlink: STLinkClient, firmware_path: str, verify: bool):
         super().__init__()
         self.stlink = stlink
         self.firmware_path = firmware_path
         self.verify = verify
+        self.signals = FlashWorkerSignals()
     
     def run(self):
         """Запускает прошивку."""
-        self.progress.emit("Начинаем прошивку...")
+        self.signals.progress.emit("Начинаем прошивку...")
         success, message = self.stlink.flash(self.firmware_path, self.verify)
-        self.finished.emit(success, message)
+        self.signals.finished.emit(success, message)
 
 
 class FirmwareGitRepoWidget(QWidget):
@@ -120,16 +124,11 @@ class FirmwareGitRepoWidget(QWidget):
     
     def init_ui(self):
         """Инициализация интерфейса."""
-        main_layout = QVBoxLayout()
+        # Создаем главный виджет с прокруткой
+        main_widget = QWidget()
+        main_layout = QVBoxLayout(main_widget)
         
-        # Используем разделитель для лучшей компоновки
-        splitter = QSplitter(Qt.Vertical)
-        
-        # --- Верхняя панель ---
-        top_widget = QWidget()
-        top_layout = QVBoxLayout(top_widget)
-        
-        # 1. Управление репозиторием
+        # --- Управление прошивками ---
         repo_group = QGroupBox("Управление прошивками")
         repo_layout = QVBoxLayout()
         
@@ -189,9 +188,9 @@ class FirmwareGitRepoWidget(QWidget):
         repo_layout.addWidget(self.firmware_list)
         
         repo_group.setLayout(repo_layout)
-        top_layout.addWidget(repo_group)
+        main_layout.addWidget(repo_group)
         
-        # 2. Подключение устройства
+        # --- Подключение устройства ---
         device_group = QGroupBox("Подключение устройства")
         device_layout = QVBoxLayout()
         
@@ -214,7 +213,7 @@ class FirmwareGitRepoWidget(QWidget):
         connect_layout.addStretch()
         device_layout.addLayout(connect_layout)
         
-        # Информация об устройстве - увеличиваем высоту
+        # Информация об устройстве
         self.device_info_text = QPlainTextEdit()
         self.device_info_text.setReadOnly(True)
         self.device_info_text.setMinimumHeight(120)
@@ -223,15 +222,9 @@ class FirmwareGitRepoWidget(QWidget):
         device_layout.addWidget(self.device_info_text)
         
         device_group.setLayout(device_layout)
-        top_layout.addWidget(device_group)
+        main_layout.addWidget(device_group)
         
-        splitter.addWidget(top_widget)
-        
-        # --- Нижняя панель: Прошивка и Лог ---
-        bottom_widget = QWidget()
-        bottom_layout = QVBoxLayout(bottom_widget)
-        
-        # 3. Прошивка
+        # --- Прошивка ---
         flash_group = QGroupBox("Прошивка")
         flash_layout = QVBoxLayout()
         
@@ -241,11 +234,6 @@ class FirmwareGitRepoWidget(QWidget):
         self.flash_btn.setMinimumHeight(35)
         self.flash_btn.clicked.connect(self.flash_device)
         flash_btn_layout.addWidget(self.flash_btn)
-        
-        self.verify_check = QCheckBox("Проверять после прошивки")
-        self.verify_check.setChecked(True)
-        flash_btn_layout.addWidget(self.verify_check)
-        
         flash_btn_layout.addStretch()
         flash_layout.addLayout(flash_btn_layout)
         
@@ -254,9 +242,9 @@ class FirmwareGitRepoWidget(QWidget):
         flash_layout.addWidget(self.progress)
         
         flash_group.setLayout(flash_layout)
-        bottom_layout.addWidget(flash_group)
+        main_layout.addWidget(flash_group)
         
-        # 4. Лог
+        # --- Лог ---
         log_group = QGroupBox("Лог операций")
         log_layout = QVBoxLayout()
         self.log_text = QPlainTextEdit()
@@ -273,25 +261,30 @@ class FirmwareGitRepoWidget(QWidget):
         log_layout.addWidget(self.log_text)
         
         log_group.setLayout(log_layout)
-        bottom_layout.addWidget(log_group)
+        main_layout.addWidget(log_group)
         
-        splitter.addWidget(bottom_widget)
+        # Добавляем растяжение в конце
+        main_layout.addStretch()
         
-        # Устанавливаем пропорции
-        splitter.setSizes([500, 250])
+        # Оборачиваем все в QScrollArea
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setWidget(main_widget)
         
-        main_layout.addWidget(splitter)
-        self.setLayout(main_layout)
+        # Основной layout виджета
+        base_layout = QVBoxLayout(self)
+        base_layout.setContentsMargins(0, 0, 0, 0)
+        base_layout.addWidget(scroll)
 
     def on_token_changed(self, text: str):
         """Обработчик изменения токена."""
         if text.strip():
             self.token_status.setText("Токен установлен")
             self.token_status.setStyleSheet("color: green;")
-            # Сохраняем токен
             self._save_github_token(text)
             self.github_token = text
-            # Обновляем менеджер
             self.release_manager.token = text
         else:
             self.token_status.setText("Токен не установлен")
@@ -316,23 +309,16 @@ class FirmwareGitRepoWidget(QWidget):
         self.log("Начинаем загрузку прошивок из GitHub Releases...")
         
         try:
-            # Получаем все релизы с прогрессом
             firmware_list = self.release_manager.get_all_releases(self.log)
-            
-            # Добавляем кэшированные прошивки
             cached = self.release_manager.get_cached_firmware()
             
-            # Объединяем, избегая дубликатов
             all_paths = {fw['path'] for fw in firmware_list}
             for fw in cached:
                 if fw['path'] not in all_paths:
                     firmware_list.append(fw)
                     all_paths.add(fw['path'])
             
-            # Сохраняем
             self.all_firmware = firmware_list
-            
-            # Отображаем список
             self.display_firmware_list()
             
             self.log(f"Найдено {len(self.all_firmware)} прошивок")
@@ -353,7 +339,6 @@ class FirmwareGitRepoWidget(QWidget):
         if filter_device != "Все":
             filtered = [f for f in self.all_firmware if f.get("device", "Unknown") == filter_device]
         
-        # Если устройство подключено, дополнительно фильтруем
         if self.device_connected:
             device_chip = self.device_info_text.toPlainText()
             if "STM32" in device_chip:
@@ -362,24 +347,20 @@ class FirmwareGitRepoWidget(QWidget):
                 filtered = [f for f in filtered if f.get("device") == "ATmega"]
         
         for fw in filtered:
-            # Создаем элемент с информацией
             version = fw.get('version', '')
             device = fw.get('device', 'Unknown')
             repo = fw.get('repo', '')
             
             item_text = f"{fw['name']}"
             if version and version != "unknown":
-                item_text += f" (v{version})"
+                item_text += f" ({version})"
             item_text += f" [{device}]"
             if repo:
                 item_text += f" [{repo}]"
             
             item = QListWidgetItem(item_text)
-            
-            # Сохраняем путь как данные
             item.setData(Qt.UserRole, fw.get("path", ""))
             
-            # Создаем подсказку
             tooltip = f"Файл: {fw['name']}\n"
             tooltip += f"Версия: {version}\n"
             tooltip += f"Устройство: {device}\n"
@@ -390,7 +371,6 @@ class FirmwareGitRepoWidget(QWidget):
                 tooltip += f"Размер: {fw['size']} байт"
             
             item.setToolTip(tooltip)
-            
             self.firmware_list.addItem(item)
         
         self.firmware_count_label.setText(f"Найдено: {len(filtered)}")
@@ -419,10 +399,7 @@ class FirmwareGitRepoWidget(QWidget):
             self.device_connected = True
             self.log(f"{message}")
             self.device_status.setText("Устройство подключено")
-            
-            # Фильтруем список прошивок
             self.filter_firmware_list()
-            
             QMessageBox.information(self, "Успех", "Устройство успешно подключено!")
         else:
             self.log(f"{message}")
@@ -435,7 +412,6 @@ class FirmwareGitRepoWidget(QWidget):
             self.device_info_text.appendPlainText("  2. Установлены ли драйверы")
             self.device_info_text.appendPlainText("  3. Установлен ли st-link (st-info, st-flash)")
             self.device_info_text.appendPlainText("  4. Подключено ли питание к устройству")
-            
             QMessageBox.warning(self, "Ошибка", message)
         
         self.connect_btn.setEnabled(True)
@@ -469,7 +445,6 @@ class FirmwareGitRepoWidget(QWidget):
             QMessageBox.warning(self, "Ошибка", "Устройство не подключено")
             return
         
-        # Проверяем существование файла
         if not Path(self.current_firmware_path).exists():
             QMessageBox.warning(self, "Ошибка", f"Файл прошивки не найден:\n{self.current_firmware_path}")
             return
@@ -485,14 +460,13 @@ class FirmwareGitRepoWidget(QWidget):
         
         self.log(f"Начинаем прошивку: {Path(self.current_firmware_path).name}")
         
-        # Запускаем прошивку в отдельном потоке
         worker = FlashWorker(
             self.stlink,
             self.current_firmware_path,
-            self.verify_check.isChecked()
+            True
         )
-        worker.progress.connect(self.log)
-        worker.finished.connect(self.flash_finished)
+        worker.signals.progress.connect(self.log)
+        worker.signals.finished.connect(self.flash_finished)
         self.threadpool.start(worker)
     
     def flash_finished(self, success: bool, message: str):
