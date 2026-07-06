@@ -13,6 +13,8 @@ steps:
     command: InitI2c
     params:
       i2c_num: 1
+      scl_pin: 6   # PB6
+      sda_pin: 7   # PB7
       speed: 100000
 
   - description: "Проверка наличия устройства LIS2MDL по адресу 0x1E"

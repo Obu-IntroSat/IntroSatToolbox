@@ -217,6 +217,12 @@ uint8_t serialize_request(uint8_t cmd_code, const void* req, uint8_t* buf) {
         pack_uint8(r->i2c_num, ptr);
         ptr += sizeof(r->i2c_num);
         // Для простых типов
+        pack_uint8(r->scl_pin, ptr);
+        ptr += sizeof(r->scl_pin);
+        // Для простых типов
+        pack_uint8(r->sda_pin, ptr);
+        ptr += sizeof(r->sda_pin);
+        // Для простых типов
         pack_uint32(r->speed, ptr);
         ptr += sizeof(r->speed);
         break;

@@ -53,6 +53,7 @@ def generate_c(protocol_data, header_path, source_path):
     print(f"C-заголовок сгенерирован: {header_path}")
     print(f"C-реализация сгенерирована: {source_path}")
 
+
 if __name__ == '__main__':
     protocol = load_protocol(YAML_FILE)
     generate_python(protocol, OUTPUT_PY)

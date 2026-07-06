@@ -491,20 +491,26 @@ class UartReceive:
 
 class InitI2c:
     """
-    Инициализация модуля I2C
+    Инициализация модуля I2C с указанием пинов
     Код команды: 120
     Поля:
-      - i2c_num (uint8) – Номер I2C (1,2...)
+      - i2c_num (uint8) – Номер I2C (1,2,3)
+      - scl_pin (uint8) – Номер пина для SCL (например, 6 для PB6)
+      - sda_pin (uint8) – Номер пина для SDA (например, 7 для PB7)
       - speed (uint32) – Частота в Гц (например, 100000)
     """
-    def __init__(self, i2c_num, speed):
+    def __init__(self, i2c_num, scl_pin, sda_pin, speed):
         self.i2c_num = i2c_num
+        self.scl_pin = scl_pin
+        self.sda_pin = sda_pin
         self.speed = speed
 
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
         result += _pack_value(self.i2c_num, 'uint8')
+        result += _pack_value(self.scl_pin, 'uint8')
+        result += _pack_value(self.sda_pin, 'uint8')
         result += _pack_value(self.speed, 'uint32')
         return result
 

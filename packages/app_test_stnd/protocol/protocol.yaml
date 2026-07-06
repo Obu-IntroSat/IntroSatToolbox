@@ -177,9 +177,11 @@ commands:
     code: 120
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер I2C (1,2...)" }
+      - { name: i2c_num, type: uint8, description: "Номер I2C (1,2,3)" }
+      - { name: scl_pin, type: uint8, description: "Номер пина для SCL (например, 6 для PB6)" }
+      - { name: sda_pin, type: uint8, description: "Номер пина для SDA (например, 7 для PB7)" }
       - { name: speed, type: uint32, description: "Частота в Гц (например, 100000)" }
-    description: "Инициализация модуля I2C"
+    description: "Инициализация модуля I2C с указанием пинов"
 
   - name: DeinitI2c
     code: 121

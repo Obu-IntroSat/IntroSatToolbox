@@ -227,11 +227,13 @@ typedef struct {
 } RequestUartReceive;
 
 /**
- * Инициализация модуля I2C
+ * Инициализация модуля I2C с указанием пинов
  * Код: 120
  */
 typedef struct {
     uint8 i2c_num;
+    uint8 scl_pin;
+    uint8 sda_pin;
     uint32 speed;
 } RequestInitI2c;
 
