@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 import sys
-from satcore import run_standalone
-from .plugin import CameraPlugin
+from PySide6.QtWidgets import QApplication
+from .ui.main_window import CameraWidget
 
 def main() -> int:
-    return run_standalone(CameraPlugin())
+    app = QApplication(sys.argv)
+    win = CameraWidget()
+    win.setWindowTitle("📷 CAMERA VIBE2K26SUMMER")
+    win.setMinimumSize(700, 600)
+    win.show()
+    return app.exec()
 
 if __name__ == "__main__":
     sys.exit(main())

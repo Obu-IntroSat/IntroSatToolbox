@@ -3,7 +3,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget
 from satcore import AppPlugin
-from .widget import CameraWidget
+from .ui.main_window import CameraWidget
 
 class CameraPlugin(AppPlugin):
     id = "camera_vibe2k26summer"
