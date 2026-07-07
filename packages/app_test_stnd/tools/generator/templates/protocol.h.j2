@@ -1,4 +1,4 @@
-                    /**
+/**
  * Автоматически сгенерированный заголовок протокола.
  * Не редактируйте вручную.
  */
@@ -19,10 +19,12 @@
  */
 typedef struct {
     {% for field in cmd.fields %}
-    {% if field.type.startswith('uint8[') %}
+    {% if field.type == 'bool' %}
+    bool {{ field.name }};
+    {% elif field.type.startswith('uint8[') %}
     uint8_t {{ field.name }}[{{ field.type|replace('uint8[', '')|replace(']', '') }}];
     {% else %}
-    {{ field.type }} {{ field.name }};
+    {{ field.type }}_t {{ field.name }};
     {% endif %}
     {% endfor %}
 } Request{{ cmd.name }};
@@ -36,20 +38,33 @@ typedef struct {
  */
 typedef struct {
     {% for field in cmd.fields %}
-    {% if field.type.startswith('uint8[') %}
+    {% if field.type == 'bool' %}
+    bool {{ field.name }};
+    {% elif field.type.startswith('uint8[') %}
     uint8_t {{ field.name }}[{{ field.type|replace('uint8[', '')|replace(']', '') }}];
     {% else %}
-    {{ field.type }} {{ field.name }};
+    {{ field.type }}_t {{ field.name }};
     {% endif %}
     {% endfor %}
 } Response{{ cmd.name }};
 
 {% endfor %}
 
-// Функции сериализации/десериализации
+// Специализированные функции сериализации/десериализации
+{% for cmd in commands if cmd.type == 'request' %}
+uint8_t serialize_Request{{ cmd.name }}(const Request{{ cmd.name }}* req, uint8_t* buf);
+void deserialize_Request{{ cmd.name }}(const uint8_t* buf, Request{{ cmd.name }}* req);
+{% endfor %}
+
+{% for cmd in commands if cmd.type == 'response' %}
+uint8_t serialize_Response{{ cmd.name }}(const Response{{ cmd.name }}* resp, uint8_t* buf);
+void deserialize_Response{{ cmd.name }}(const uint8_t* buf, Response{{ cmd.name }}* resp);
+{% endfor %}
+
+// Общие функции по коду команды
 uint8_t serialize_request(uint8_t cmd_code, const void* req, uint8_t* buf);
-uint8_t deserialize_request(uint8_t cmd_code, const uint8_t* buf, void* req);
+void deserialize_request(uint8_t cmd_code, const uint8_t* buf, void* req);
 uint8_t serialize_response(uint8_t cmd_code, const void* resp, uint8_t* buf);
-uint8_t deserialize_response(uint8_t cmd_code, const uint8_t* buf, void* resp);
+void deserialize_response(uint8_t cmd_code, const uint8_t* buf, void* resp);
 
 #endif // PROTOCOL_H

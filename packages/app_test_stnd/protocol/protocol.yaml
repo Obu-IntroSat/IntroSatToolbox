@@ -226,23 +226,17 @@ commands:
     description: "Деинициализация модуля UART"
 
   # ========== ОТВЕТЫ (200-255) ==========
-  - name: VersionInfoResponse
+  - name: VersionInfoResp
     code: 200
-    type: response
-    fields:
-      - { name: major, type: uint8 }
-      - { name: minor, type: uint8 }
-      - { name: patch, type: uint8 }
-    description: "Ответ на GetVersion"
-
-  - name: StatusResponse
+    type: responsetest_emulator.py\
+  - name: StatusResp
     code: 201
     type: response
     fields:
       - { name: powered, type: bool, description: "Включено ли тестируемое устройство" }
     description: "Ответ на GetStatus"
 
-  - name: GpioReadResponse
+  - name: GpioReadResp
     code: 204
     type: response
     fields:
@@ -251,7 +245,7 @@ commands:
       - { name: value, type: bool, description: "Состояние пина" }
     description: "Ответ на GpioRead"
 
-  - name: AdcReadResponse
+  - name: AdcReadResp
     code: 205
     type: response
     fields:
@@ -260,7 +254,7 @@ commands:
       - { name: voltage_mv, type: uint16, description: "Напряжение в милливольтах" }
     description: "Ответ на AdcRead"
 
-  - name: EepromReadResponse
+  - name: EepromReadResp
     code: 206
     type: response
     fields:
@@ -270,7 +264,7 @@ commands:
       - { name: data, type: "uint8[64]", description: "Прочитанные данные" }
     description: "Ответ на EepromRead"
 
-  - name: I2cProbeResponse
+  - name: I2cProbeResp
     code: 207
     type: response
     fields:
@@ -279,7 +273,7 @@ commands:
       - { name: present, type: bool, description: "Устройство обнаружено" }
     description: "Ответ на I2cProbe"
 
-  - name: I2cReadRegisterResponse
+  - name: I2cReadRegisterResp
     code: 208
     type: response
     fields:
@@ -289,7 +283,7 @@ commands:
       - { name: data, type: "uint8[8]", description: "Прочитанные данные регистра" }
     description: "Ответ на I2cReadRegister"
 
-  - name: I2cReadResponse
+  - name: I2cReadResp
     code: 209
     type: response
     fields:
@@ -299,7 +293,7 @@ commands:
       - { name: data, type: "uint8[64]", description: "Прочитанные данные" }
     description: "Ответ на I2cRead"
 
-  - name: SpiReceiveResponse
+  - name: SpiReceiveResp
     code: 210
     type: response
     fields:
@@ -309,7 +303,7 @@ commands:
       - { name: data, type: "uint8[64]", description: "Полученные данные" }
     description: "Ответ на SpiReceive"
 
-  - name: SpiExchangeResponse
+  - name: SpiExchangeResp
     code: 211
     type: response
     fields:
@@ -319,7 +313,7 @@ commands:
       - { name: rx_data, type: "uint8[64]", description: "Полученные данные" }
     description: "Ответ на SpiExchange"
 
-  - name: UartReceiveResponse
+  - name: UartReceiveResp
     code: 212
     type: response
     fields:
@@ -329,7 +323,7 @@ commands:
       - { name: data, type: "uint8[64]", description: "Принятые данные" }
     description: "Ответ на UartReceive"
 
-  - name: GenericResponse
+  - name: GenericResp
     code: 250
     type: response
     fields:

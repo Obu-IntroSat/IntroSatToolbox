@@ -32,18 +32,18 @@ INITSPI_CODE = 122
 DEINITSPI_CODE = 123
 INITUART_CODE = 124
 DEINITUART_CODE = 125
-VERSIONINFORESPONSE_CODE = 200
-STATUSRESPONSE_CODE = 201
-GPIOREADRESPONSE_CODE = 204
-ADCREADRESPONSE_CODE = 205
-EEPROMREADRESPONSE_CODE = 206
-I2CPROBERESPONSE_CODE = 207
-I2CREADREGISTERRESPONSE_CODE = 208
-I2CREADRESPONSE_CODE = 209
-SPIRECEIVERESPONSE_CODE = 210
-SPIEXCHANGERESPONSE_CODE = 211
-UARTRECEIVERESPONSE_CODE = 212
-GENERICRESPONSE_CODE = 250
+VERSIONINFORESP_CODE = 200
+STATUSRESP_CODE = 201
+GPIOREADRESP_CODE = 204
+ADCREADRESP_CODE = 205
+EEPROMREADRESP_CODE = 206
+I2CPROBERESP_CODE = 207
+I2CREADREGISTERRESP_CODE = 208
+I2CREADRESP_CODE = 209
+SPIRECEIVERESP_CODE = 210
+SPIEXCHANGERESP_CODE = 211
+UARTRECEIVERESP_CODE = 212
+GENERICRESP_CODE = 250
 
 # ---------- Вспомогательные функции ----------
 def _pack_value(value, field_type):
@@ -617,7 +617,7 @@ class DeinitUart:
 
 
 # ---------- Классы ответов ----------
-class VersionInfoResponse:
+class VersionInfoResp:
     """
     Ответ на GetVersion
     Код ответа: 200
@@ -648,7 +648,7 @@ class VersionInfoResponse:
             'float32': 'f', 'bool': '?'
         }['uint8'])
 
-class StatusResponse:
+class StatusResp:
     """
     Ответ на GetStatus
     Код ответа: 201
@@ -665,7 +665,7 @@ class StatusResponse:
             'float32': 'f', 'bool': '?'
         }['bool'])
 
-class GpioReadResponse:
+class GpioReadResp:
     """
     Ответ на GpioRead
     Код ответа: 204
@@ -696,7 +696,7 @@ class GpioReadResponse:
             'float32': 'f', 'bool': '?'
         }['bool'])
 
-class AdcReadResponse:
+class AdcReadResp:
     """
     Ответ на AdcRead
     Код ответа: 205
@@ -727,7 +727,7 @@ class AdcReadResponse:
             'float32': 'f', 'bool': '?'
         }['uint16'])
 
-class EepromReadResponse:
+class EepromReadResp:
     """
     Ответ на EepromRead
     Код ответа: 206
@@ -762,7 +762,7 @@ class EepromReadResponse:
         self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
-class I2cProbeResponse:
+class I2cProbeResp:
     """
     Ответ на I2cProbe
     Код ответа: 207
@@ -793,7 +793,7 @@ class I2cProbeResponse:
             'float32': 'f', 'bool': '?'
         }['bool'])
 
-class I2cReadRegisterResponse:
+class I2cReadRegisterResp:
     """
     Ответ на I2cReadRegister
     Код ответа: 208
@@ -828,7 +828,7 @@ class I2cReadRegisterResponse:
         self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
-class I2cReadResponse:
+class I2cReadResp:
     """
     Ответ на I2cRead
     Код ответа: 209
@@ -863,7 +863,7 @@ class I2cReadResponse:
         self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
-class SpiReceiveResponse:
+class SpiReceiveResp:
     """
     Ответ на SpiReceive
     Код ответа: 210
@@ -898,7 +898,7 @@ class SpiReceiveResponse:
         self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
-class SpiExchangeResponse:
+class SpiExchangeResp:
     """
     Ответ на SpiExchange
     Код ответа: 211
@@ -933,7 +933,7 @@ class SpiExchangeResponse:
         self.rx_data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
-class UartReceiveResponse:
+class UartReceiveResp:
     """
     Ответ на UartReceive
     Код ответа: 212
@@ -968,7 +968,7 @@ class UartReceiveResponse:
         self.data = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
         offset += arr_len
 
-class GenericResponse:
+class GenericResp:
     """
     Общий ответ для команд без данных (инициализации, установка, запись и т.д.)
     Код ответа: 250
@@ -995,18 +995,18 @@ class GenericResponse:
 
 # ---------- Фабрика для разбора ответов ----------
 RESPONSE_CLASSES: Dict[int, Any] = {
-    200: VersionInfoResponse,
-    201: StatusResponse,
-    204: GpioReadResponse,
-    205: AdcReadResponse,
-    206: EepromReadResponse,
-    207: I2cProbeResponse,
-    208: I2cReadRegisterResponse,
-    209: I2cReadResponse,
-    210: SpiReceiveResponse,
-    211: SpiExchangeResponse,
-    212: UartReceiveResponse,
-    250: GenericResponse,
+    200: VersionInfoResp,
+    201: StatusResp,
+    204: GpioReadResp,
+    205: AdcReadResp,
+    206: EepromReadResp,
+    207: I2cProbeResp,
+    208: I2cReadRegisterResp,
+    209: I2cReadResp,
+    210: SpiReceiveResp,
+    211: SpiExchangeResp,
+    212: UartReceiveResp,
+    250: GenericResp,
 }
 
 def parse_response(code: int, data: bytes):

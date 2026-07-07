@@ -1,10 +1,11 @@
 /**
  * Автоматически сгенерированная реализация протокола.
+ * Не редактируйте вручную.
  */
 #include "protocol.h"
 #include <string.h>
 
-// Вспомогательная функция для копирования с учётом размера
+// Вспомогательные функции для упаковки/распаковки (little-endian)
 static inline void pack_uint8(uint8_t val, uint8_t* buf) { *buf = val; }
 static inline void pack_uint16(uint16_t val, uint8_t* buf) { memcpy(buf, &val, 2); }
 static inline void pack_uint32(uint32_t val, uint8_t* buf) { memcpy(buf, &val, 4); }
@@ -15,31 +16,159 @@ static inline uint16_t unpack_uint16(const uint8_t* buf) { uint16_t v; memcpy(&v
 static inline uint32_t unpack_uint32(const uint8_t* buf) { uint32_t v; memcpy(&v, buf, 4); return v; }
 static inline bool unpack_bool(const uint8_t* buf) { return *buf != 0; }
 
-// Сериализация запроса
-uint8_t serialize_request(uint8_t cmd_code, const void* req, uint8_t* buf) {
+// ---------- Сериализация/десериализация запросов ----------
+{% for cmd in commands if cmd.type == 'request' %}
+uint8_t serialize_Request{{ cmd.name }}(const Request{{ cmd.name }}* req, uint8_t* buf) {
     uint8_t* ptr = buf;
-    switch (cmd_code) {
-    {% for cmd in commands if cmd.type == 'request' %}
-    case {{ cmd.name.upper() }}_CODE: {
-        const Request{{ cmd.name }}* r = (const Request{{ cmd.name }}*)req;
-        {% for field in cmd.fields %}
-        {% if field.type.startswith('uint8[') %}
-        memcpy(ptr, r->{{ field.name }}, sizeof(r->{{ field.name }}));
-        ptr += sizeof(r->{{ field.name }});
-        {% else %}
-        // Для простых типов
-        pack_{{ field.type|replace('uint8','uint8')|replace('uint16','uint16')|replace('uint32','uint32')|replace('bool','bool') }}(r->{{ field.name }}, ptr);
-        ptr += sizeof(r->{{ field.name }});
-        {% endif %}
-        {% endfor %}
-        break;
-    }
+    {% if cmd.fields %}
+    {% for field in cmd.fields %}
+    {% if field.type.startswith('uint8[') %}
+    memcpy(ptr, req->{{ field.name }}, sizeof(req->{{ field.name }}));
+    ptr += sizeof(req->{{ field.name }});
+    {% elif field.type == 'uint8' %}
+    pack_uint8(req->{{ field.name }}, ptr);
+    ptr += 1;
+    {% elif field.type == 'uint16' %}
+    pack_uint16(req->{{ field.name }}, ptr);
+    ptr += 2;
+    {% elif field.type == 'uint32' %}
+    pack_uint32(req->{{ field.name }}, ptr);
+    ptr += 4;
+    {% elif field.type == 'bool' %}
+    pack_bool(req->{{ field.name }}, ptr);
+    ptr += 1;
+    {% else %}
+    #error "Unsupported type in request {{ cmd.name }}"
+    {% endif %}
     {% endfor %}
-    default:
-        return 0; // неизвестная команда
-    }
+    {% endif %}
     return ptr - buf;
 }
 
-// Десериализация запроса (аналогично для ответов)
-// Здесь для краткости опускаем полную реализацию, но она генерируется аналогично.
+void deserialize_Request{{ cmd.name }}(const uint8_t* buf, Request{{ cmd.name }}* req) {
+    const uint8_t* ptr = buf;
+    {% if cmd.fields %}
+    {% for field in cmd.fields %}
+    {% if field.type.startswith('uint8[') %}
+    memcpy(req->{{ field.name }}, ptr, sizeof(req->{{ field.name }}));
+    ptr += sizeof(req->{{ field.name }});
+    {% elif field.type == 'uint8' %}
+    req->{{ field.name }} = unpack_uint8(ptr);
+    ptr += 1;
+    {% elif field.type == 'uint16' %}
+    req->{{ field.name }} = unpack_uint16(ptr);
+    ptr += 2;
+    {% elif field.type == 'uint32' %}
+    req->{{ field.name }} = unpack_uint32(ptr);
+    ptr += 4;
+    {% elif field.type == 'bool' %}
+    req->{{ field.name }} = unpack_bool(ptr);
+    ptr += 1;
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    (void)ptr;
+}
+{% endfor %}
+
+// ---------- Сериализация/десериализация ответов ----------
+{% for cmd in commands if cmd.type == 'response' %}
+uint8_t serialize_Response{{ cmd.name }}(const Response{{ cmd.name }}* resp, uint8_t* buf) {
+    uint8_t* ptr = buf;
+    {% if cmd.fields %}
+    {% for field in cmd.fields %}
+    {% if field.type.startswith('uint8[') %}
+    memcpy(ptr, resp->{{ field.name }}, sizeof(resp->{{ field.name }}));
+    ptr += sizeof(resp->{{ field.name }});
+    {% elif field.type == 'uint8' %}
+    pack_uint8(resp->{{ field.name }}, ptr);
+    ptr += 1;
+    {% elif field.type == 'uint16' %}
+    pack_uint16(resp->{{ field.name }}, ptr);
+    ptr += 2;
+    {% elif field.type == 'uint32' %}
+    pack_uint32(resp->{{ field.name }}, ptr);
+    ptr += 4;
+    {% elif field.type == 'bool' %}
+    pack_bool(resp->{{ field.name }}, ptr);
+    ptr += 1;
+    {% else %}
+    #error "Unsupported type in response {{ cmd.name }}"
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    return ptr - buf;
+}
+
+void deserialize_Response{{ cmd.name }}(const uint8_t* buf, Response{{ cmd.name }}* resp) {
+    const uint8_t* ptr = buf;
+    {% if cmd.fields %}
+    {% for field in cmd.fields %}
+    {% if field.type.startswith('uint8[') %}
+    memcpy(resp->{{ field.name }}, ptr, sizeof(resp->{{ field.name }}));
+    ptr += sizeof(resp->{{ field.name }});
+    {% elif field.type == 'uint8' %}
+    resp->{{ field.name }} = unpack_uint8(ptr);
+    ptr += 1;
+    {% elif field.type == 'uint16' %}
+    resp->{{ field.name }} = unpack_uint16(ptr);
+    ptr += 2;
+    {% elif field.type == 'uint32' %}
+    resp->{{ field.name }} = unpack_uint32(ptr);
+    ptr += 4;
+    {% elif field.type == 'bool' %}
+    resp->{{ field.name }} = unpack_bool(ptr);
+    ptr += 1;
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+    (void)ptr;
+}
+{% endfor %}
+
+// ---------- Общие функции по коду команды ----------
+uint8_t serialize_request(uint8_t cmd_code, const void* req, uint8_t* buf) {
+    switch (cmd_code) {
+    {% for cmd in commands if cmd.type == 'request' %}
+    case {{ cmd.code }}:
+        return serialize_Request{{ cmd.name }}((const Request{{ cmd.name }}*)req, buf);
+    {% endfor %}
+    default:
+        return 0;
+    }
+}
+
+void deserialize_request(uint8_t cmd_code, const uint8_t* buf, void* req) {
+    switch (cmd_code) {
+    {% for cmd in commands if cmd.type == 'request' %}
+    case {{ cmd.code }}:
+        deserialize_Request{{ cmd.name }}(buf, (Request{{ cmd.name }}*)req);
+        break;
+    {% endfor %}
+    default:
+        break;
+    }
+}
+
+uint8_t serialize_response(uint8_t cmd_code, const void* resp, uint8_t* buf) {
+    switch (cmd_code) {
+    {% for cmd in commands if cmd.type == 'response' %}
+    case {{ cmd.code }}:
+        return serialize_Response{{ cmd.name }}((const Response{{ cmd.name }}*)resp, buf);
+    {% endfor %}
+    default:
+        return 0;
+    }
+}
+
+void deserialize_response(uint8_t cmd_code, const uint8_t* buf, void* resp) {
+    switch (cmd_code) {
+    {% for cmd in commands if cmd.type == 'response' %}
+    case {{ cmd.code }}:
+        deserialize_Response{{ cmd.name }}(buf, (Response{{ cmd.name }}*)resp);
+        break;
+    {% endfor %}
+    default:
+        break;
+    }
+}
