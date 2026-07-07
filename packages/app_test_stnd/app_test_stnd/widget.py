@@ -8,6 +8,8 @@ from PySide6.QtWidgets import (
     QComboBox, QPushButton, QTextEdit, QFrame
 )
 
+from satcore.serial_io import available_ports
+
 from .test_controller import (
     create_controller,
     execute_connection_check,
@@ -16,6 +18,8 @@ from .test_controller import (
     execute_i2c_test,
     execute_spi_test
 )
+
+BAUD_RATES = ["9600", "19200", "38400", "57600", "115200", "230400"]
 
 
 class TemplateWidget(QWidget):
@@ -26,6 +30,52 @@ class TemplateWidget(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setSpacing(20)
         main_layout.setContentsMargins(30, 30, 30, 30)
+
+        # === СТРОКА ВЫБОРА ПОРТА И СКОРОСТИ ===
+        port_row = QWidget()
+        port_layout = QHBoxLayout(port_row)
+        port_layout.setSpacing(15)
+
+        label_port = QLabel("Порт:")
+        label_port.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
+        port_layout.addWidget(label_port)
+
+        self.port_box = QComboBox()
+        self.port_box.setMinimumWidth(150)
+        self.port_box.setMaximumWidth(200)
+        port_layout.addWidget(self.port_box)
+
+        label_baud = QLabel("Скорость:")
+        label_baud.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
+        port_layout.addWidget(label_baud)
+
+        self.baud_box = QComboBox()
+        self.baud_box.addItems(BAUD_RATES)
+        self.baud_box.setCurrentText("9600")
+        self.baud_box.setMinimumWidth(100)
+        self.baud_box.setMaximumWidth(120)
+        port_layout.addWidget(self.baud_box)
+
+        refresh_btn = QPushButton("Обновить порты")
+        refresh_btn.clicked.connect(self.refresh_ports)
+        port_layout.addWidget(refresh_btn)
+        port_layout.addStretch()
+
+        main_layout.addWidget(port_row)
+
+        # === РАЗДЕЛИТЕЛЬ ПОСЛЕ СТРОКИ ВЫБОРА ПОРТА ===
+        separator_port = QFrame()
+        separator_port.setObjectName("separator_port")
+        separator_port.setStyleSheet("""
+            QFrame#separator_port {
+                background-color: #75f5ea;
+                max-height: 2px;
+                min-height: 2px;
+                border: none;
+            }
+        """)
+        separator_port.setFrameShape(QFrame.HLine)
+        main_layout.addWidget(separator_port)
 
         # === ВЕРХНЯЯ ПОЛОВИНА ===
         top_container = QWidget()
@@ -43,7 +93,7 @@ class TemplateWidget(QWidget):
         conn_layout.setSpacing(15)
 
         label_conn = QLabel("Проверка подключения")
-        label_conn.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px;")
+        label_conn.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px; color: white;")
         conn_layout.addWidget(label_conn)
 
         self.connection_combo = QComboBox()
@@ -65,7 +115,7 @@ class TemplateWidget(QWidget):
         test_layout.setSpacing(15)
 
         label_test = QLabel("Тестирование")
-        label_test.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px;")
+        label_test.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px; color: white;")
         test_layout.addWidget(label_test)
 
         self.test_combo = QComboBox()
@@ -87,13 +137,13 @@ class TemplateWidget(QWidget):
         test_layout.addStretch()
         left_layout.addWidget(test_row)
 
-        top_layout.addWidget(left_container)
+        top_layout.addWidget(left_container, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # === ПРАВАЯ ЧАСТЬ: блок с кнопками версий ===
+        # === ПРАВАЯ ЧАСТЬ: блок с информацией о подключении ===
         right_container = QFrame()
-        right_container.setObjectName("version_frame")
+        right_container.setObjectName("info_frame")
         right_container.setStyleSheet("""
-            QFrame#version_frame {
+            QFrame#info_frame {
                 background-color: rgba(117, 245, 234, 0.15);
                 border: 2px solid #75f5ea;
                 border-radius: 12px;
@@ -101,34 +151,43 @@ class TemplateWidget(QWidget):
             }
         """)
         right_layout = QVBoxLayout(right_container)
-        right_layout.setSpacing(15)
+        right_layout.setSpacing(10)
         right_layout.setContentsMargins(20, 20, 20, 20)
 
-        # Заголовок блока
-        version_label = QLabel("Запрос версии")
-        version_label.setStyleSheet("font-weight: bold; font-size: 14px; color: #75f5ea;")
-        version_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        right_layout.addWidget(version_label)
+        # Кнопка подключения
+        connect_btn = QPushButton("Подключить стенд")
+        connect_btn.clicked.connect(self.on_connect_stand)
+        connect_btn.setMinimumWidth(180)
+        right_layout.addWidget(connect_btn)
 
-        # Кнопка запроса версии прошивки
-        firmware_btn = QPushButton("Версия прошивки")
-        firmware_btn.clicked.connect(self.on_request_firmware)
-        firmware_btn.setMinimumWidth(180)
-        right_layout.addWidget(firmware_btn)
+        # Разделитель
+        separator_info = QFrame()
+        separator_info.setStyleSheet("""
+            QFrame {
+                background-color: #75f5ea;
+                max-height: 1px;
+                min-height: 1px;
+                border: none;
+            }
+        """)
+        right_layout.addWidget(separator_info)
 
-        # Кнопка запроса версии стенда
-        stand_btn = QPushButton("Версия стенда")
-        stand_btn.clicked.connect(self.on_request_stand_version)
-        stand_btn.setMinimumWidth(180)
-        right_layout.addWidget(stand_btn)
+        # Информация о подключении
+        self.port_info_label = QLabel("Открыт порт: ")
+        self.port_info_label.setStyleSheet("color: white; font-size: 12px;")
+        right_layout.addWidget(self.port_info_label)
 
-        top_layout.addWidget(right_container)
+        self.stand_info_label = QLabel("Данные о стенде: ")
+        self.stand_info_label.setStyleSheet("color: white; font-size: 12px;")
+        right_layout.addWidget(self.stand_info_label)
 
-        # Растягиваем правую часть по вертикали
-        right_container.setSizePolicy(
-            right_container.sizePolicy().horizontalPolicy(),
-            left_container.sizePolicy().verticalPolicy()
-        )
+        self.fixture_info_label = QLabel("Данные об оснастке: ")
+        self.fixture_info_label.setStyleSheet("color: white; font-size: 12px;")
+        right_layout.addWidget(self.fixture_info_label)
+
+        right_layout.addStretch()
+
+        top_layout.addWidget(right_container, alignment=Qt.AlignmentFlag.AlignCenter)
 
         main_layout.addWidget(top_container)
 
@@ -175,31 +234,143 @@ class TemplateWidget(QWidget):
         main_layout.addWidget(output_container)
 
         # Создаем контроллер
-        self.controller = create_controller(port="COM15", baudrate=9600)
+        self.controller = None
+
+        # Заполняем список портов
+        self.refresh_ports()
+
+        # Очищаем информационные поля
+        self.clear_info_labels()
+
+    def clear_info_labels(self):
+        """Очищает информационные метки."""
+        self.port_info_label.setText("Открыт порт: ")
+        self.stand_info_label.setText("Данные о стенде: ")
+        self.fixture_info_label.setText("Данные об оснастке: ")
+
+    def refresh_ports(self) -> None:
+        """Обновляет список доступных COM-портов."""
+        current = self.port_box.currentText()
+        self.port_box.clear()
+        ports = available_ports()
+        self.port_box.addItems(ports)
+        if current in ports:
+            self.port_box.setCurrentText(current)
+        elif ports:
+            self.port_box.setCurrentIndex(0)
+
+    def get_controller(self):
+        """Создает или обновляет контроллер с текущими настройками порта и скорости."""
+        port = self.port_box.currentText()
+        if not port:
+            self.output_text.clear()
+            self.output_text.append("Ошибка: Нет доступных COM-портов!")
+            return None
+
+        baudrate = int(self.baud_box.currentText())
+        self.controller = create_controller(port=port, baudrate=baudrate)
+        return self.controller
+
+    # === НОВЫЙ ОБРАБОТЧИК: Подключение стенда ===
+    def on_connect_stand(self):
+        """Подключение к стенду и получение информации."""
+        controller = self.get_controller()
+        if controller is None:
+            return
+
+        self.output_text.clear()
+        self.output_text.append("Подключение к стенду...")
+        self.output_text.append("")
+
+        # #СДЕЛАТЬ НОРМАЛЬНОЕ ПОДКЛЮЧЕНИЕ
+        # Здесь должна быть логика:
+        # 1. Открыть порт (controller.connect())
+        # 2. Запросить версию прошивки (GetVersion)
+        # 3. Запросить версию стенда (GetStatus или другая команда)
+        # 4. Запросить данные об оснастке
+        # 5. Обновить информационные метки справа
+
+        # Шаг 1: Подключение к порту
+        if not controller.connect():
+            self.output_text.append("Ошибка: Не удалось открыть порт!")
+            self.clear_info_labels()
+            return
+
+        self.output_text.append("Порт открыт")
+
+        # Шаг 2: Запрос версии прошивки
+        result = controller.execute_command("GetVersion", {})
+        firmware_ok = False
+        if result['success'] and result['response_code'] == 200:
+            data = result['response_data']
+            version = f"v{data.get('major', 0)}.{data.get('minor', 0)}.{data.get('patch', 0)}"
+            self.stand_info_label.setText(f"Данные о стенде: {version}")
+            self.output_text.append(f"Версия прошивки: {version}")
+            firmware_ok = True
+        else:
+            self.stand_info_label.setText("Данные о стенде: Ошибка получения")
+            self.output_text.append("Ошибка получения версии прошивки")
+
+        # Шаг 3: Запрос данных об оснастке (пока заглушка)
+        # TODO: Реальная проверка оснастки
+        # Пока просто проверяем наличие устройства по I2C адресу 0x1E (LIS2MDL)
+        result = controller.execute_command("I2cProbe", {"address": 0x1E})
+        if result['success'] and result['response_code'] == 207:
+            present = result['response_data'].get('present', False)
+            if present:
+                self.fixture_info_label.setText("Данные об оснастке: LIS2MDL обнаружен")
+                self.output_text.append("Оснастка: LIS2MDL обнаружен")
+            else:
+                self.fixture_info_label.setText("Данные об оснастке: Не обнаружена")
+                self.output_text.append("Оснастка: LIS2MDL не обнаружен")
+        else:
+            self.fixture_info_label.setText("Данные об оснастке: Ошибка проверки")
+            self.output_text.append("Ошибка проверки оснастки")
+
+        # Обновляем порт
+        self.port_info_label.setText(f"Открыт порт: {controller.port}")
+
+        # Итоговый результат
+        if firmware_ok:
+            self.output_text.append("")
+            self.output_text.append("Подключение выполнено успешно!")
+        else:
+            self.output_text.append("")
+            self.output_text.append("Подключение выполнено с ошибками!")
+
+        # Отключаемся
+        # controller.disconnect()
+        # self.output_text.append(" Порт закрыт")
 
     # === ОБРАБОТЧИКИ СОБЫТИЙ ===
 
     def on_check_connection(self):
         """Проверка подключения к МК или оснастке."""
+        controller = self.get_controller()
+        if controller is None:
+            return
+
         selected = self.connection_combo.currentText()
-        result = execute_connection_check(self.controller, selected)
+        result = execute_connection_check(controller, selected)
         self.output_text.clear()
         self.output_text.append(result)
 
     def on_request_firmware(self):
-        """Запрос версии прошивки."""
-        result = execute_firmware_version(self.controller)
+        """Запрос версии прошивки (устарело, оставлено для совместимости)."""
         self.output_text.clear()
-        self.output_text.append(result)
+        self.output_text.append("Используйте кнопку 'Подключить стенд' для получения информации.")
 
     def on_request_stand_version(self):
-        """Запрос версии стенда."""
-        result = execute_stand_version(self.controller)
+        """Запрос версии стенда (устарело, оставлено для совместимости)."""
         self.output_text.clear()
-        self.output_text.append(result)
+        self.output_text.append("Используйте кнопку 'Подключить стенд' для получения информации.")
 
     def on_run_test(self):
         """Запуск выбранного теста."""
+        controller = self.get_controller()
+        if controller is None:
+            return
+
         test_name = self.test_combo.currentText()
 
         if test_name == "Выберите тест...":
@@ -221,11 +392,11 @@ class TemplateWidget(QWidget):
 
         # Выполняем соответствующий тест
         if "LIS2MDL" in test_name:
-            result = execute_i2c_test(self.controller, "LIS2MDL", 0x1E)
+            result = execute_i2c_test(controller, "LIS2MDL", 0x1E)
         elif "LSM6DS3" in test_name:
-            result = execute_i2c_test(self.controller, "LSM6DS3", 0x6A)
+            result = execute_i2c_test(controller, "LSM6DS3", 0x6A)
         elif "CC1101" in test_name:
-            result = execute_spi_test(self.controller)
+            result = execute_spi_test(controller)
         else:  # FCT - Полное тестирование
             result = self.run_full_test()
 
@@ -233,6 +404,10 @@ class TemplateWidget(QWidget):
 
     def run_full_test(self) -> str:
         """Полное функциональное тестирование."""
+        controller = self.get_controller()
+        if controller is None:
+            return "Ошибка: Нет доступных COM-портов!"
+
         lines = []
         lines.append("=== FCT - Полное тестирование ===")
         lines.append("")
@@ -245,7 +420,7 @@ class TemplateWidget(QWidget):
         # Тест 1: Проверка подключения
         total_tests += 1
         lines.append(f"Тест {total_tests}: Проверка подключения")
-        result = execute_connection_check(self.controller, "МК")
+        result = execute_connection_check(controller, "МК")
         lines.append(result)
         lines.append("")
         if "Ошибка" not in result:
@@ -261,7 +436,7 @@ class TemplateWidget(QWidget):
             lines.append("   Не удалось подключиться к стенду.")
             lines.append("   Проверьте:")
             lines.append("     1. Подключен ли стенд по USB")
-            lines.append("     2. Правильный ли COM-порт (сейчас COM15)")
+            lines.append("     2. Правильный ли COM-порт")
             lines.append("     3. Запущен ли эмулятор (emulator.py)")
             lines.append("=" * 50)
             return "\n".join(lines)
@@ -269,7 +444,7 @@ class TemplateWidget(QWidget):
         # Тест 2: Версия прошивки
         total_tests += 1
         lines.append(f"Тест {total_tests}: Версия прошивки")
-        result = execute_firmware_version(self.controller)
+        result = execute_firmware_version(controller)
         lines.append(result)
         lines.append("")
         if "Ошибка" not in result:
@@ -280,7 +455,7 @@ class TemplateWidget(QWidget):
         # Тест 3: Версия стенда
         total_tests += 1
         lines.append(f"Тест {total_tests}: Версия стенда")
-        result = execute_stand_version(self.controller)
+        result = execute_stand_version(controller)
         lines.append(result)
         lines.append("")
         if "Ошибка" not in result:
@@ -291,7 +466,7 @@ class TemplateWidget(QWidget):
         # Тест 4: I2C тест LIS2MDL
         total_tests += 1
         lines.append(f"Тест {total_tests}: LIS2MDL (I2C)")
-        result = execute_i2c_test(self.controller, "LIS2MDL", 0x1E)
+        result = execute_i2c_test(controller, "LIS2MDL", 0x1E)
         lines.append(result)
         lines.append("")
         if "Ошибка" not in result:
@@ -302,7 +477,7 @@ class TemplateWidget(QWidget):
         # Тест 5: I2C тест LSM6DS3
         total_tests += 1
         lines.append(f"Тест {total_tests}: LSM6DS3 (I2C)")
-        result = execute_i2c_test(self.controller, "LSM6DS3", 0x6A)
+        result = execute_i2c_test(controller, "LSM6DS3", 0x6A)
         lines.append(result)
         lines.append("")
         if "Ошибка" not in result:
@@ -313,7 +488,7 @@ class TemplateWidget(QWidget):
         # Тест 6: SPI тест CC1101
         total_tests += 1
         lines.append(f"Тест {total_tests}: CC1101 (SPI)")
-        result = execute_spi_test(self.controller)
+        result = execute_spi_test(controller)
         lines.append(result)
         lines.append("")
         if "Ошибка" not in result:
