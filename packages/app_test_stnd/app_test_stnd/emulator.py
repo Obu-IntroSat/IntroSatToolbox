@@ -8,8 +8,8 @@ import time
 import sys
 from generated_protocol import (
     GETSTATUS_CODE,
-    STATUSRESPONSE_CODE,
-    GENERICRESPONSE_CODE,
+    STATUSRESP_CODE,
+    GENERICRESP_CODE,
 
     INITI2C_CODE,
     DEINITI2C_CODE,
@@ -19,9 +19,9 @@ from generated_protocol import (
     I2CWRITEREGISTER_CODE,
     I2CWRITE_CODE,
 
-    I2CPROBERESPONSE_CODE,
-    I2CREADREGISTERRESPONSE_CODE,
-    I2CREADRESPONSE_CODE,
+    I2CPROBERESP_CODE,
+    I2CREADREGISTERRESP_CODE,
+    I2CREADRESP_CODE,
 
     INITSPI_CODE,
     DEINITSPI_CODE,
@@ -29,8 +29,8 @@ from generated_protocol import (
     SPIRECEIVE_CODE,
     SPIEXCHANGE_CODE,
 
-    SPIRECEIVERESPONSE_CODE,
-    SPIEXCHANGERESPONSE_CODE,
+    SPIRECEIVERESP_CODE,
+    SPIEXCHANGERESP_CODE,
 
     GPIOINITOUTPUT_CODE,
     GPIOINITINPUT_CODE,
@@ -79,12 +79,12 @@ def handle_command(cmd_code: int, data: bytes) -> tuple:
 
     # ---- Системные команды ----
     if cmd_code == GETSTATUS_CODE:
-        return STATUSRESPONSE_CODE, b'\x01'
+        return STATUSRESP_CODE, b'\x01'
 
     # ---- GPIO ----
     if cmd_code == GPIOINITOUTPUT_CODE or cmd_code == GPIOINITINPUT_CODE:
         # Просто имитируем успех
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     if cmd_code == GPIOSET_CODE:
         if len(data) >= 2:
@@ -92,93 +92,93 @@ def handle_command(cmd_code: int, data: bytes) -> tuple:
             value = data[1]
             gpio_pins[pin] = value
             print(f"   GPIO: пин {pin} установлен в {value}")
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     if cmd_code == GPIOREAD_CODE:
         # Для простоты возвращаем текущее состояние или 0
         pin = data[0] if len(data) > 0 else 0
         val = gpio_pins.get(pin, 0)
-        return GENERICRESPONSE_CODE, bytes([0x00, 0x00, val])  # status=0, error=0, value
+        return GENERICRESP_CODE, bytes([0x00, 0x00, val])  # status=0, error=0, value
 
     if cmd_code == GPIODEINIT_CODE:
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     # ---- I2C команды ----
     if cmd_code == INITI2C_CODE or cmd_code == DEINITI2C_CODE:
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     if cmd_code == I2CPROBE_CODE:
         address = data[0] if len(data) > 0 else 0
         if address in (0x1E, 0x6A):
-            return I2CPROBERESPONSE_CODE, b'\x00\x00\x01'  # present=1
+            return I2CPROBERESP_CODE, b'\x00\x00\x01'  # present=1
         else:
-            return I2CPROBERESPONSE_CODE, b'\x00\x00\x00'
+            return I2CPROBERESP_CODE, b'\x00\x00\x00'
 
     if cmd_code == I2CREADREGISTER_CODE:
         if len(data) < 3:
-            return GENERICRESPONSE_CODE, b'\x01\x01'
+            return GENERICRESP_CODE, b'\x01\x01'
         address = data[0]
         reg = data[1]
         if address == 0x1E and reg == 0x4F:   # LIS2MDL
-            return I2CREADREGISTERRESPONSE_CODE, b'\x00\x00\x01' + b'\x40' + b'\x00' * 7
+            return I2CREADREGISTERRESP_CODE, b'\x00\x00\x01' + b'\x40' + b'\x00' * 7
         elif address == 0x6A and reg == 0x0F:  # LSM6DS3
             if ERROR_MODE:
                 # имитация ошибки: неверный WHO_AM_I
-                return I2CREADREGISTERRESPONSE_CODE, b'\x00\x00\x01' + b'\x00' + b'\x00' * 7
+                return I2CREADREGISTERRESP_CODE, b'\x00\x00\x01' + b'\x00' + b'\x00' * 7
             else:
-                return I2CREADREGISTERRESPONSE_CODE, b'\x00\x00\x01' + b'\x69' + b'\x00' * 7
+                return I2CREADREGISTERRESP_CODE, b'\x00\x00\x01' + b'\x69' + b'\x00' * 7
         else:
-            return GENERICRESPONSE_CODE, b'\x01\x02'
+            return GENERICRESP_CODE, b'\x01\x02'
 
     if cmd_code == I2CREAD_CODE:
         if len(data) < 2:
-            return GENERICRESPONSE_CODE, b'\x01\x01'
+            return GENERICRESP_CODE, b'\x01\x01'
         address = data[0]
         length = data[1]
         if address == 0x1E:
             sample = bytes([0x01, 0x02, 0x03, 0x04, 0x05, 0x06])
-            return I2CREADRESPONSE_CODE, b'\x00\x00\x06' + sample + b'\x00' * 58
+            return I2CREADRESP_CODE, b'\x00\x00\x06' + sample + b'\x00' * 58
         elif address == 0x6A:
             sample = bytes([0x10, 0x00, 0x20, 0x00, 0x30, 0x00])
-            return I2CREADRESPONSE_CODE, b'\x00\x00\x06' + sample + b'\x00' * 58
+            return I2CREADRESP_CODE, b'\x00\x00\x06' + sample + b'\x00' * 58
         else:
-            return GENERICRESPONSE_CODE, b'\x01\x02'
+            return GENERICRESP_CODE, b'\x01\x02'
 
     if cmd_code in (I2CWRITEREGISTER_CODE, I2CWRITE_CODE):
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     # ---- SPI команды ----
     if cmd_code == INITSPI_CODE or cmd_code == DEINITSPI_CODE:
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     if cmd_code == SPISEND_CODE:
         # Просто имитация успешной отправки
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     if cmd_code == SPIRECEIVE_CODE:
         # Возвращаем массив нулей длины len (data[1])
         if len(data) < 2:
-            return GENERICRESPONSE_CODE, b'\x01\x01'
+            return GENERICRESP_CODE, b'\x01\x01'
         length = data[1] if len(data) > 1 else 1
         # Ограничим 64 байта
         if length > 64:
             length = 64
-        return SPIRECEIVERESPONSE_CODE, b'\x00\x00' + bytes([length]) + b'\x00' * length + b'\x00' * (64 - length)
+        return SPIRECEIVERESP_CODE, b'\x00\x00' + bytes([length]) + b'\x00' * length + b'\x00' * (64 - length)
 
     if cmd_code == SPIEXCHANGE_CODE:
         # Проверяем, что CS (пин 2) низкий
         if gpio_pins.get(2, 1) != 0:
             # CS не активирован – ошибка
-            return GENERICRESPONSE_CODE, b'\x01\x03'  # ошибка: CS не в низком уровне
+            return GENERICRESP_CODE, b'\x01\x03'  # ошибка: CS не в низком уровне
 
         # data содержит: spi_num, tx_len, tx_data (до 64 байт)
         if len(data) < 3:
-            return GENERICRESPONSE_CODE, b'\x01\x01'
+            return GENERICRESP_CODE, b'\x01\x01'
         tx_len = data[1]
         # tx_data начинается с индекса 2
         tx_data = data[2:2+tx_len]
         if not tx_data:
-            return GENERICRESPONSE_CODE, b'\x01\x01'
+            return GENERICRESP_CODE, b'\x01\x01'
 
         # Анализируем команду: первый байт – адрес/команда
         cmd_byte = tx_data[0]
@@ -195,18 +195,18 @@ def handle_command(cmd_code: int, data: bytes) -> tuple:
             # Упакуем в формат ответа SpiExchangeResponse: status, error, rx_len, rx_data (64 байта)
             rx_len = len(response_data)
             full_data = response_data + b'\x00' * (64 - rx_len)
-            return SPIEXCHANGERESPONSE_CODE, b'\x00\x00' + bytes([rx_len]) + full_data
+            return SPIEXCHANGERESP_CODE, b'\x00\x00' + bytes([rx_len]) + full_data
         else:
             # Другие команды – возвращаем нули
-            return SPIEXCHANGERESPONSE_CODE, b'\x00\x00\x00' + b'\x00' * 64
+            return SPIEXCHANGERESP_CODE, b'\x00\x00\x00' + b'\x00' * 64
 
     # ---- Прочие заглушки ----
     if cmd_code in (ADCREAD_CODE, EEPROMREAD_CODE, UARTSEND_CODE, UARTRECEIVE_CODE):
-        return GENERICRESPONSE_CODE, b'\x00\x00'
+        return GENERICRESP_CODE, b'\x00\x00'
 
     # ---- Неизвестная команда ----
     print(f"   Неизвестная команда: {cmd_code}")
-    return GENERICRESPONSE_CODE, b'\x01\x02'
+    return GENERICRESP_CODE, b'\x01\x02'
 
 def main():
     try:
