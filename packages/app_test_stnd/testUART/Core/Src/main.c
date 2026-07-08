@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "protocol.h"   // <-- теперь используем сгенерированный протокол
+#include "protocol.h"   // <-- добавлен сгенерированный протокол
 #include <string.h>
 #include <stdio.h>
 
@@ -58,7 +58,6 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
-
 /* USER CODE BEGIN 0 */
 
 /**
@@ -77,18 +76,17 @@ static uint8_t calc_crc(const uint8_t* data, uint8_t len) {
 
 /**
   * @brief  Отправляет ответ на команду.
-  * @param  cmd_code: код ответа (из protocol.h, например VERSIONINFORESPONSE_CODE)
+  * @param  cmd_code: код ответа (из protocol.h, например VERSIONINFORESP_CODE)
   * @param  resp:     указатель на структуру ответа (тип зависит от cmd_code)
   * @param  resp_len: размер данных ответа в байтах (возвращает serialize_response)
   */
 static void send_response(uint8_t cmd_code, const void* resp, uint8_t resp_len) {
-    // Буфер для данных ответа (максимум 64 байта)
     uint8_t data[64];
     // Сериализуем структуру ответа в байтовый массив
     uint8_t data_len = serialize_response(cmd_code, resp, data);
-    // Если почему-то длина не совпадает с переданной, используем data_len
+    // Если длина не совпадает (на всякий случай), используем data_len
     if (data_len != resp_len) {
-        // Можно добавить обработку ошибки, но пока игнорируем
+        // Можно добавить обработку ошибки, но игнорируем
     }
 
     // Формируем полный пакет: старт, код, длина, данные, CRC
@@ -101,10 +99,10 @@ static void send_response(uint8_t cmd_code, const void* resp, uint8_t resp_len) 
     idx += data_len;
 
     // Вычисляем CRC по байтам: код, длина, данные (без стартового байта)
-    uint8_t crc = calc_crc(&packet[1], 2 + data_len); // 1 байт код + 1 байт длина + данные
+    uint8_t crc = calc_crc(&packet[1], 2 + data_len);
     packet[idx++] = crc;
 
-    // Отправляем пакет
+    // Отправляем через UART
     HAL_UART_Transmit(&huart1, packet, idx, 300);
 }
 
@@ -159,7 +157,7 @@ int main(void)
 
       // Проверяем стартовый байт
       if (header[0] != START_BYTE) {
-          continue; // не наш пакет
+          continue;
       }
 
       uint8_t cmd_code = header[1];   // код команды
@@ -193,27 +191,27 @@ int main(void)
 
       if (cmd_code == GETVERSION_CODE) {
           // Запрос версии – формируем ответ
-          ResponseVersionInfo resp = {
+          ResponseVersionInfoResp resp = {
               .major = 0,
               .minor = 1,
               .patch = 0
           };
-          send_response(VERSIONINFORESPONSE_CODE, &resp, sizeof(resp));
+          send_response(VERSIONINFORESP_CODE, &resp, sizeof(resp));
       }
       else if (cmd_code == GETSTATUS_CODE) {
           // Запрос статуса – отвечаем: питание выключено (0)
-          ResponseStatus resp = {
+          ResponseStatusResp resp = {
               .powered = false
           };
-          send_response(STATUSRESPONSE_CODE, &resp, sizeof(resp));
+          send_response(STATUSRESP_CODE, &resp, sizeof(resp));
       }
       else {
           // Неизвестная команда – возвращаем ошибку
-          ResponseGeneric resp = {
+          ResponseGenericResp resp = {
               .status = 1,      // ERROR
               .error_code = 100 // код ошибки (можно задать любой)
           };
-          send_response(GENERICRESPONSE_CODE, &resp, sizeof(resp));
+          send_response(GENERICRESP_CODE, &resp, sizeof(resp));
       }
 
       HAL_Delay(30); // небольшая задержка, чтобы не забивать UART
@@ -230,9 +228,14 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
+  /** Configure the main internal regulator output voltage
+  */
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
@@ -242,6 +245,8 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
