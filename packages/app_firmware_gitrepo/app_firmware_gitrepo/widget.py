@@ -71,6 +71,8 @@ class FirmwareGitRepoWidget(QWidget):
         
         # Состояние
         self.all_firmware = []
+        self.devices = {}  # {device_name: [firmware_list]}
+        self.selected_device = None
         self.current_firmware_path = None
         self.is_flashing = False
         self.device_connected = False
@@ -81,12 +83,11 @@ class FirmwareGitRepoWidget(QWidget):
         self.check_stlink_status()
         self.refresh_firmware_list()
     
-    def _load_github_token(self, file_path: Optional[Path] = None) -> Optional[str]:
-        """Загружает GitHub токен из указанного файла."""
-        path = file_path if file_path else self.token_file
-        if path.exists():
+    def _load_github_token(self) -> Optional[str]:
+        """Загружает GitHub токен из файла .introsat/.github_token."""
+        if self.token_file.exists():
             try:
-                with open(path, 'r', encoding='utf-8') as f:
+                with open(self.token_file, 'r', encoding='utf-8') as f:
                     token = f.read().strip()
                     if token:
                         return token
@@ -94,12 +95,11 @@ class FirmwareGitRepoWidget(QWidget):
                 pass
         return None
     
-    def _save_github_token(self, token: str, file_path: Optional[Path] = None):
-        """Сохраняет GitHub токен в указанный файл."""
-        path = file_path if file_path else self.token_file
-        path.parent.mkdir(parents=True, exist_ok=True)
+    def _save_github_token(self, token: str):
+        """Сохраняет GitHub токен в файл .introsat/.github_token."""
+        self.token_file.parent.mkdir(parents=True, exist_ok=True)
         try:
-            with open(path, 'w', encoding='utf-8') as f:
+            with open(self.token_file, 'w', encoding='utf-8') as f:
                 f.write(token.strip())
             return True
         except Exception:
@@ -120,7 +120,7 @@ class FirmwareGitRepoWidget(QWidget):
         # Кнопки управления
         btn_layout = QHBoxLayout()
         self.refresh_btn = QPushButton("Обновить прошивки")
-        self.refresh_btn.setMinimumHeight(35)
+        self.refresh_btn.setMinimumHeight(25)
         self.refresh_btn.clicked.connect(self.refresh_firmware_list)
         btn_layout.addWidget(self.refresh_btn)
         
@@ -133,35 +133,31 @@ class FirmwareGitRepoWidget(QWidget):
         token_layout = QHBoxLayout()
         token_layout.setSpacing(3)
         
-        token_label = QLabel("GitHub токен:")
-        token_label.setFixedWidth(80)
+        token_label = QLabel("Token:")
+        token_label.setFixedWidth(40)
         token_layout.addWidget(token_label)
         
-        # Ограничиваем ширину поля ввода токена
         self.token_edit = QLineEdit()
         self.token_edit.setPlaceholderText("Введите токен")
         self.token_edit.setEchoMode(QLineEdit.Password)
-        self.token_edit.setFixedWidth(800)
+        self.token_edit.setMaximumWidth(300)
         if self.github_token:
             self.token_edit.setText(self.github_token)
         self.token_edit.textChanged.connect(self.on_token_changed)
         token_layout.addWidget(self.token_edit)
         
-        # Кнопка показа токена (глазик)
         self.toggle_visibility_btn = QPushButton("👁")
-        self.toggle_visibility_btn.setFixedSize(45, 32)
+        self.toggle_visibility_btn.setFixedSize(32, 26)
         self.toggle_visibility_btn.setToolTip("Показать/скрыть токен")
         self.toggle_visibility_btn.clicked.connect(self.toggle_token_visibility)
         token_layout.addWidget(self.toggle_visibility_btn)
         
-        # Кнопка выбора файла (папка)
         self.token_file_btn = QPushButton("📂")
-        self.toggle_visibility_btn.setFixedSize(45, 32)
+        self.token_file_btn.setFixedSize(32, 26)
         self.token_file_btn.setToolTip("Выбрать файл с токеном")
         self.token_file_btn.clicked.connect(self.select_token_file)
         token_layout.addWidget(self.token_file_btn)
         
-        # Статус токена
         self.token_status = QLabel()
         if self.github_token:
             self.token_status.setText("Токен загружен")
@@ -174,27 +170,50 @@ class FirmwareGitRepoWidget(QWidget):
         token_layout.addStretch()
         repo_layout.addLayout(token_layout)
         
-        # Список прошивок с фильтром
-        filter_layout = QHBoxLayout()
-        filter_layout.addWidget(QLabel("Фильтр:"))
-        self.filter_combo = QComboBox()
-        self.filter_combo.addItems(["Все", "STM32", "ATmega"])
-        self.filter_combo.currentTextChanged.connect(self.filter_firmware_list)
-        filter_layout.addWidget(self.filter_combo)
+        # --- Двухпанельный список: Устройства | Прошивки ---
+        devices_layout = QHBoxLayout()
+        devices_layout.setSpacing(5)
         
+        # Левая панель - список устройств
+        devices_group = QGroupBox("Устройства")
+        devices_group_layout = QVBoxLayout()
+        devices_group_layout.setContentsMargins(5, 5, 5, 5)
+        
+        self.devices_list = QListWidget()
+        self.devices_list.setMinimumHeight(150)
+        self.devices_list.setMaximumHeight(200)
+        self.devices_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        self.devices_list.itemSelectionChanged.connect(self.on_device_selected)
+        devices_group_layout.addWidget(self.devices_list)
+        
+        devices_group.setLayout(devices_group_layout)
+        devices_layout.addWidget(devices_group, 1)
+        
+        # Правая панель - список прошивок для выбранного устройства
+        firmware_group = QGroupBox("Прошивки")
+        firmware_group_layout = QVBoxLayout()
+        firmware_group_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Убираем фильтр - он больше не нужен
+        # Оставляем только счетчик прошивок
+        count_layout = QHBoxLayout()
+        count_layout.addStretch()
         self.firmware_count_label = QLabel("Найдено: 0")
-        filter_layout.addWidget(self.firmware_count_label)
-        filter_layout.addStretch()
-        repo_layout.addLayout(filter_layout)
+        count_layout.addWidget(self.firmware_count_label)
+        firmware_group_layout.addLayout(count_layout)
         
-        # Список прошивок
         self.firmware_list = QListWidget()
-        self.firmware_list.setMinimumHeight(100)
-        self.firmware_list.setMaximumHeight(150)
+        self.firmware_list.setMinimumHeight(150)
+        self.firmware_list.setMaximumHeight(200)
         self.firmware_list.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         self.firmware_list.itemSelectionChanged.connect(self.on_firmware_selected)
         self.firmware_list.itemDoubleClicked.connect(self.on_firmware_double_click)
-        repo_layout.addWidget(self.firmware_list)
+        firmware_group_layout.addWidget(self.firmware_list)
+        
+        firmware_group.setLayout(firmware_group_layout)
+        devices_layout.addWidget(firmware_group, 2)
+        
+        repo_layout.addLayout(devices_layout)
         
         repo_group.setLayout(repo_layout)
         main_layout.addWidget(repo_group)
@@ -204,17 +223,15 @@ class FirmwareGitRepoWidget(QWidget):
         device_layout = QVBoxLayout()
         device_layout.setSpacing(3)
         
-        # Информация о ST-Link
         stlink_layout = QHBoxLayout()
         self.stlink_status_label = QLabel("ST-Link: проверка...")
         stlink_layout.addWidget(self.stlink_status_label)
         stlink_layout.addStretch()
         device_layout.addLayout(stlink_layout)
         
-        # Кнопка подключения
         connect_layout = QHBoxLayout()
         self.connect_btn = QPushButton("Подключить устройство")
-        self.connect_btn.setMinimumHeight(35)
+        self.connect_btn.setMinimumHeight(25)
         self.connect_btn.clicked.connect(self.connect_device)
         connect_layout.addWidget(self.connect_btn)
         
@@ -223,7 +240,6 @@ class FirmwareGitRepoWidget(QWidget):
         connect_layout.addStretch()
         device_layout.addLayout(connect_layout)
         
-        # Информация об устройстве
         self.device_info_text = QPlainTextEdit()
         self.device_info_text.setReadOnly(True)
         self.device_info_text.setMinimumHeight(100)
@@ -263,10 +279,9 @@ class FirmwareGitRepoWidget(QWidget):
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumBlockCount(1000)
         
-        # Кнопки управления логом
         log_btn_layout = QHBoxLayout()
         clear_log_btn = QPushButton("Очистить лог")
-        clear_log_btn.setMinimumHeight(35)
+        clear_log_btn.setMinimumHeight(25)
         clear_log_btn.clicked.connect(lambda: self.log_text.clear())
         log_btn_layout.addWidget(clear_log_btn)
         log_btn_layout.addStretch()
@@ -276,17 +291,14 @@ class FirmwareGitRepoWidget(QWidget):
         log_group.setLayout(log_layout)
         main_layout.addWidget(log_group)
         
-        # Добавляем растяжение в конце
         main_layout.addStretch()
         
-        # Оборачиваем все в QScrollArea
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         scroll.setWidget(main_widget)
         
-        # Основной layout виджета
         base_layout = QVBoxLayout(self)
         base_layout.setContentsMargins(0, 0, 0, 0)
         base_layout.addWidget(scroll)
@@ -368,9 +380,48 @@ class FirmwareGitRepoWidget(QWidget):
                     all_paths.add(fw['path'])
             
             self.all_firmware = firmware_list
-            self.display_firmware_list()
             
-            self.log(f"Найдено {len(self.all_firmware)} прошивок")
+            # Получаем словарь репозиториев для подстановки device
+            repos_dict = {}
+            for repo in self.release_manager.repositories:
+                repos_dict[repo.get('name')] = repo.get('device', 'Unknown')
+            
+            # Группируем прошивки по устройствам
+            self.devices = {}
+            for fw in firmware_list:
+                # Если у прошивки нет device, берем из репозитория
+                device = fw.get('device', '')
+                if not device or device == 'Unknown':
+                    repo_name = fw.get('repo', '')
+                    device = repos_dict.get(repo_name, 'Unknown')
+                    fw['device'] = device
+                
+                repo = fw.get('repo', '')
+                device_name = f"{device} ({repo})" if repo else device
+                if device_name not in self.devices:
+                    self.devices[device_name] = []
+                self.devices[device_name].append(fw)
+            
+            # Обновляем список устройств
+            self.devices_list.clear()
+            # Сортируем устройства: сначала STM32, потом остальные
+            def sort_key(name):
+                if 'STM32' in name:
+                    return (0, name)
+                elif 'ATmega' in name:
+                    return (1, name)
+                else:
+                    return (2, name)
+            
+            for device_name in sorted(self.devices.keys(), key=sort_key):
+                count = len(self.devices[device_name])
+                self.devices_list.addItem(f"{device_name} ({count})")
+            
+            # Выбираем первое устройство
+            if self.devices_list.count() > 0:
+                self.devices_list.setCurrentRow(0)
+            
+            self.log(f"Найдено {len(self.all_firmware)} прошивок в {len(self.devices)} устройствах")
             self.repo_status.setText(f"Готово ({len(self.all_firmware)} прошивок)")
             
         except Exception as e:
@@ -380,43 +431,58 @@ class FirmwareGitRepoWidget(QWidget):
         
         self.refresh_btn.setEnabled(True)
     
-    def display_firmware_list(self, filter_device: str = "Все"):
-        """Отображает список прошивок с фильтрацией."""
+    def on_device_selected(self):
+        """Обработчик выбора устройства в левом списке."""
+        selected = self.devices_list.currentItem()
+        if not selected:
+            return
+        
+        # Получаем имя устройства
+        device_name = selected.text()
+        # Убираем счетчик прошивок в скобках
+        if ' (' in device_name:
+            device_name = device_name[:device_name.rfind(' (')]
+        
+        self.selected_device = device_name
+        
+        # Показываем прошивки для выбранного устройства
+        self.display_firmware_for_device(device_name)
+    
+    def display_firmware_for_device(self, device_name: str):
+        """Отображает прошивки для выбранного устройства."""
         self.firmware_list.clear()
         
-        filtered = self.all_firmware
-        if filter_device != "Все":
-            filtered = [f for f in self.all_firmware if f.get("device", "Unknown") == filter_device]
+        if device_name not in self.devices:
+            return
         
+        firmwares = self.devices[device_name]
+        
+        # Если устройство подключено, фильтруем прошивки
         if self.device_connected:
             device_chip = self.device_info_text.toPlainText()
-            if "STM32" in device_chip:
-                filtered = [f for f in filtered if f.get("device") == "STM32"]
-            elif "ATmega" in device_chip or "MEGA" in device_chip:
-                filtered = [f for f in filtered if f.get("device") == "ATmega"]
+            # Извлекаем тип устройства из device_name
+            if 'STM32' in device_name:
+                firmwares = [f for f in firmwares if f.get('device') == 'STM32']
+            elif 'ATmega' in device_name:
+                firmwares = [f for f in firmwares if f.get('device') == 'ATmega']
         
-        for fw in filtered:
+        for fw in firmwares:
             version = fw.get('version', '')
-            device = fw.get('device', 'Unknown')
-            repo = fw.get('repo', '')
-            
             item_text = f"{fw['name']}"
             if version and version != "unknown":
                 if not version.startswith("v"):
                     item_text += f" (v{version})"
                 else:
                     item_text += f" ({version})"
-            item_text += f" [{device}]"
-            if repo:
-                item_text += f" [{repo}]"
             
             item = QListWidgetItem(item_text)
             item.setData(Qt.UserRole, fw.get("path", ""))
             
+            # Создаем подсказку
             tooltip = f"Файл: {fw['name']}\n"
             tooltip += f"Версия: {version}\n"
-            tooltip += f"Устройство: {device}\n"
-            tooltip += f"Репозиторий: {repo}\n"
+            tooltip += f"Устройство: {fw.get('device', 'Unknown')}\n"
+            tooltip += f"Репозиторий: {fw.get('repo', '')}\n"
             if fw.get('published_at'):
                 tooltip += f"Опубликовано: {fw['published_at']}\n"
             if fw.get('size'):
@@ -425,11 +491,7 @@ class FirmwareGitRepoWidget(QWidget):
             item.setToolTip(tooltip)
             self.firmware_list.addItem(item)
         
-        self.firmware_count_label.setText(f"Найдено: {len(filtered)}")
-    
-    def filter_firmware_list(self):
-        """Фильтрует список по выбранному типу."""
-        self.display_firmware_list(self.filter_combo.currentText())
+        self.firmware_count_label.setText(f"Найдено: {len(firmwares)}")
     
     def connect_device(self):
         """Подключается к устройству через ST-Link."""
@@ -451,7 +513,11 @@ class FirmwareGitRepoWidget(QWidget):
             self.device_connected = True
             self.log(f"{message}")
             self.device_status.setText("Устройство подключено")
-            self.filter_firmware_list()
+            
+            # Обновляем список прошивок с учетом подключенного устройства
+            if self.selected_device:
+                self.display_firmware_for_device(self.selected_device)
+            
             QMessageBox.information(self, "Успех", "Устройство успешно подключено!")
         else:
             self.log(f"{message}")
@@ -531,8 +597,7 @@ class FirmwareGitRepoWidget(QWidget):
             QMessageBox.information(
                 self, 
                 "Успех", 
-                "Прошивка выполнена успешно!\n\n"
-                "Если светодиод не мигает — отключите и снова подключите питание устройства."
+                "Прошивка выполнена успешно!"
             )
         else:
             self.log(f"Ошибка: {message}")
