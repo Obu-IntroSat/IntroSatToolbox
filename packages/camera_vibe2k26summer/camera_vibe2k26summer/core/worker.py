@@ -30,6 +30,7 @@ class CameraWorker(QThread):
         self.config = config
         self.ser = None  # <-- Добавляем self.ser как в оригинале
         self.running = True
+        self._stop_event = Event()
         self.is_busy = False
         self.current_command = None
         self.capture_in_progress = False
@@ -95,7 +96,7 @@ class CameraWorker(QThread):
             return b''
         data = b''
         start = time.time()
-        while len(data) < size and (time.time() - start) < timeout:
+        while len(data) < size and (time.time() - start) < timeout and not self._stop_event.is_set():
             if self.ser.in_waiting > 0:
                 available = self.ser.in_waiting
                 to_read = min(available, size - len(data))
@@ -138,7 +139,7 @@ class CameraWorker(QThread):
             response = b""
             attempts = 0
             
-            while (time.time() - start_time) < self.config.timeout_version:
+            while (time.time() - start_time) < self.config.timeout_version and not self._stop_event.is_set():
                 if self.ser.in_waiting > 0:
                     data = self.ser.read(self.ser.in_waiting)
                     response += data
@@ -169,7 +170,7 @@ class CameraWorker(QThread):
             return ""
     
     def run(self):
-        while self.running:
+        while self.running  and not self._stop_event.is_set():
             if self.current_command == 'capture':
                 self._do_capture()
             elif self.current_command == 'download':
@@ -208,7 +209,7 @@ class CameraWorker(QThread):
             timeout = self.config.timeout_capture
             preamble = bytes.fromhex(self.config.preamble)
             
-            while (time.time() - start_time) < timeout:
+            while (time.time() - start_time) < timeout and not self._stop_event.is_set():
                 if self.ser.in_waiting > 0:
                     data = self.ser.read(self.ser.in_waiting)
                     if preamble in data:
@@ -331,7 +332,7 @@ class CameraWorker(QThread):
             last_log_time = time.time()
             
             for chunk_idx in range(total_chunks):
-                if not self.running:
+                if not self.running or self._stop_event.is_set():
                     break
                 
                 self.ser.reset_input_buffer()
@@ -344,7 +345,7 @@ class CameraWorker(QThread):
                 start_time = time.time()
                 timeout = self.config.timeout_chunk
                 
-                while read_total < chunk_total and (time.time() - start_time) < timeout:
+                while read_total < chunk_total and (time.time() - start_time) < timeout and not self._stop_event.is_set():
                     if self.ser.in_waiting > 0:
                         available = self.ser.in_waiting
                         to_read = min(available, chunk_total - read_total)
@@ -458,3 +459,6 @@ class CameraWorker(QThread):
     
     def stop(self):
         self.running = False
+        self._stop_event.set()
+        self.current_command = None
+        self.capture_in_progress = False

@@ -318,10 +318,21 @@ class CameraWidget(QWidget):
                 with open(path, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 config = CameraCommandConfig.from_dict(data)
-                self.config_manager.add(config)
+                added = self.config_manager.add(config)
+                if not added:
+                    reply = QMessageBox.question(
+                        self, "Конфигурация существует",
+                        f"Конфигурация '{config.name}' уже существует. Перезаписать?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+                    )
+                    if reply == QMessageBox.StandardButton.No:
+                        self.add_log(f"ℹ️ Импорт отменен: {config.name}")
+                        return
+                    self.config_manager.update(config)
                 self.update_config_list()
                 self.config_combo.setCurrentText(config.name)
-                self.add_log(f"✅ Загружена конфигурация: {config.name}")
+                action = "Загружена" if added else "Обновлена"
+                self.add_log(f"✅ {action} конфигурация: {config.name}")
             except Exception as e:
                 self.add_log(f"❌ Ошибка: {e}")
                 QMessageBox.critical(self, "Ошибка", str(e))
@@ -385,6 +396,8 @@ class CameraWidget(QWidget):
     def disconnect(self):
         if self.worker:
             self.worker.stop()
+            if self.worker.isRunning():
+                self.worker.wait(3000)
             self.worker.disconnect()
             self.worker = None
         
