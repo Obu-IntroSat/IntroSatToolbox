@@ -2,7 +2,7 @@
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QGroupBox,
-    QGridLayout, QLabel, QDialogButtonBox
+    QGridLayout, QLabel, QDialogButtonBox, QMessageBox
 )
 
 from ..core.config import CameraCommandConfig
@@ -101,22 +101,42 @@ class CreateConfigDialog(QDialog):
     
     def get_config(self) -> CameraCommandConfig:
         return CameraCommandConfig(
-            name=self.name_edit.text(),
-            description=self.desc_edit.text(),
-            version=self.version_edit.text(),
-            capture=self.capture_edit.text(),
-            properties=self.properties_edit.text(),
-            next_chunk=self.next_chunk_edit.text(),
-            set_size=self.set_size_edit.text(),
-            set_exposure=self.set_exposure_edit.text(),
-            start_transfer=self.start_transfer_edit.text(),
-            get_version=self.get_version_edit.text(),
-            baudrate=int(self.baudrate_edit.text()),
-            preamble=self.preamble_edit.text(),
-            postamble=self.postamble_edit.text(),
-            chunk_size=int(self.chunk_size_edit.text()),
-            property_size=int(self.property_size_edit.text()),
-            timeout_capture=float(self.timeout_capture_edit.text()),
-            timeout_chunk=float(self.timeout_chunk_edit.text()),
-            timeout_version=float(self.timeout_version_edit.text()),
+            name=self.name_edit.text().strip(),
+            description=self.desc_edit.text().strip(),
+            version=self.version_edit.text().strip(),
+            capture=self.capture_edit.text().strip(),
+            properties=self.properties_edit.text().strip(),
+            next_chunk=self.next_chunk_edit.text().strip(),
+            set_size=self.set_size_edit.text().strip(),
+            set_exposure=self.set_exposure_edit.text().strip(),
+            start_transfer=self.start_transfer_edit.text().strip(),
+            get_version=self.get_version_edit.text().strip(),
+            baudrate=int(self.baudrate_edit.text().strip()),
+            preamble=self.preamble_edit.text().strip(),
+            postamble=self.postamble_edit.text().strip(),
+            chunk_size=int(self.chunk_size_edit.text().strip()),
+            property_size=int(self.property_size_edit.text().strip()),
+            timeout_capture=float(self.timeout_capture_edit.text().strip()),
+            timeout_chunk=float(self.timeout_chunk_edit.text().strip()),
+            timeout_version=float(self.timeout_version_edit.text().strip()),
         )
+
+    def accept(self):
+        try:
+            config = self.get_config()
+        except ValueError:
+            QMessageBox.warning(self, "Ошибка", "Проверьте числовые поля конфигурации.")
+            return
+
+        if not config.name:
+            QMessageBox.warning(self, "Ошибка", "Укажите название конфигурации.")
+            return
+
+        try:
+            bytes.fromhex(config.preamble)
+            bytes.fromhex(config.postamble)
+        except ValueError:
+            QMessageBox.warning(self, "Ошибка", "Преамбула и постамбула должны быть hex-строками.")
+            return
+
+        super().accept()

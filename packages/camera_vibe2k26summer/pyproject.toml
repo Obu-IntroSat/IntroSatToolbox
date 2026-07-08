@@ -23,7 +23,7 @@ dependencies = [
 camera_vibe2k26summer = "camera_vibe2k26summer.plugin:CameraPlugin"
 
 [project.scripts]
-camera-vibe2k26summer = "camera_vibe2k26summer.main:main"
+camera-vibe2k26summer = "camera_vibe2k26summer.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
