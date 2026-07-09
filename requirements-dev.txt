@@ -4,10 +4,8 @@
 -e packages/app_comms
 -e packages/app_firmware
 -e packages/app_template
+-e packages/app_firmware_gitrepo
 -e shell
 
 # Build tool for producing executables.
 pyinstaller>=6.0
-
-# app_firmware_gitrepo установите отдельно
-# -e packages/app_firmware_gitrepo

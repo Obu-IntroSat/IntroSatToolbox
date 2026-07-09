@@ -120,7 +120,6 @@ class FirmwareGitRepoWidget(QWidget):
         # Кнопки управления
         btn_layout = QHBoxLayout()
         self.refresh_btn = QPushButton("Обновить прошивки")
-        self.refresh_btn.setMinimumHeight(25)
         self.refresh_btn.clicked.connect(self.refresh_firmware_list)
         btn_layout.addWidget(self.refresh_btn)
         
@@ -134,26 +133,23 @@ class FirmwareGitRepoWidget(QWidget):
         token_layout.setSpacing(3)
         
         token_label = QLabel("Token:")
-        token_label.setFixedWidth(40)
         token_layout.addWidget(token_label)
         
         self.token_edit = QLineEdit()
         self.token_edit.setPlaceholderText("Введите токен")
+        self.token_edit.setMinimumWidth(700)
         self.token_edit.setEchoMode(QLineEdit.Password)
-        self.token_edit.setMaximumWidth(300)
         if self.github_token:
             self.token_edit.setText(self.github_token)
         self.token_edit.textChanged.connect(self.on_token_changed)
         token_layout.addWidget(self.token_edit)
         
         self.toggle_visibility_btn = QPushButton("👁")
-        self.toggle_visibility_btn.setFixedSize(32, 26)
         self.toggle_visibility_btn.setToolTip("Показать/скрыть токен")
         self.toggle_visibility_btn.clicked.connect(self.toggle_token_visibility)
         token_layout.addWidget(self.toggle_visibility_btn)
         
-        self.token_file_btn = QPushButton("📂")
-        self.token_file_btn.setFixedSize(32, 26)
+        self.token_file_btn = QPushButton("Обзор...")
         self.token_file_btn.setToolTip("Выбрать файл с токеном")
         self.token_file_btn.clicked.connect(self.select_token_file)
         token_layout.addWidget(self.token_file_btn)
@@ -194,8 +190,6 @@ class FirmwareGitRepoWidget(QWidget):
         firmware_group_layout = QVBoxLayout()
         firmware_group_layout.setContentsMargins(5, 5, 5, 5)
         
-        # Убираем фильтр - он больше не нужен
-        # Оставляем только счетчик прошивок
         count_layout = QHBoxLayout()
         count_layout.addStretch()
         self.firmware_count_label = QLabel("Найдено: 0")
@@ -231,7 +225,6 @@ class FirmwareGitRepoWidget(QWidget):
         
         connect_layout = QHBoxLayout()
         self.connect_btn = QPushButton("Подключить устройство")
-        self.connect_btn.setMinimumHeight(25)
         self.connect_btn.clicked.connect(self.connect_device)
         connect_layout.addWidget(self.connect_btn)
         
@@ -243,7 +236,7 @@ class FirmwareGitRepoWidget(QWidget):
         self.device_info_text = QPlainTextEdit()
         self.device_info_text.setReadOnly(True)
         self.device_info_text.setMinimumHeight(100)
-        self.device_info_text.setMaximumHeight(140)
+        self.device_info_text.setMaximumHeight(200)
         self.device_info_text.setPlaceholderText("Информация об устройстве появится здесь после подключения")
         device_layout.addWidget(self.device_info_text)
         
@@ -258,7 +251,6 @@ class FirmwareGitRepoWidget(QWidget):
         flash_btn_layout = QHBoxLayout()
         self.flash_btn = QPushButton("Прошить выбранную прошивку")
         self.flash_btn.setEnabled(False)
-        self.flash_btn.setMinimumHeight(30)
         self.flash_btn.clicked.connect(self.flash_device)
         flash_btn_layout.addWidget(self.flash_btn)
         flash_btn_layout.addStretch()
@@ -278,10 +270,10 @@ class FirmwareGitRepoWidget(QWidget):
         self.log_text = QPlainTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumBlockCount(1000)
+        self.log_text.setMinimumHeight(300)
         
         log_btn_layout = QHBoxLayout()
         clear_log_btn = QPushButton("Очистить лог")
-        clear_log_btn.setMinimumHeight(25)
         clear_log_btn.clicked.connect(lambda: self.log_text.clear())
         log_btn_layout.addWidget(clear_log_btn)
         log_btn_layout.addStretch()
@@ -524,7 +516,7 @@ class FirmwareGitRepoWidget(QWidget):
             self.device_connected = False
             self.device_status.setText("Ошибка подключения")
             self.device_info_text.clear()
-            self.device_info_text.appendPlainText("Не удалось подключиться к устройству\n\n")
+            self.device_info_text.appendPlainText("Не удалось подключиться к устройству\n")
             self.device_info_text.appendPlainText("Проверьте:")
             self.device_info_text.appendPlainText("  1. Подключен ли программатор ST-Link")
             self.device_info_text.appendPlainText("  2. Установлены ли драйверы")
