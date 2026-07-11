@@ -6,7 +6,7 @@ import sys
 
 from satcore import run_standalone
 
-from .plugin import TemplatePlugin
+from app_template.plugin import TemplatePlugin
 
 
 def main() -> int:

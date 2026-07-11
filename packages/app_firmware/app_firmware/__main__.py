@@ -6,7 +6,7 @@ import sys
 
 from satcore import run_standalone
 
-from .plugin import FirmwarePlugin
+from app_firmware.plugin import FirmwarePlugin
 
 
 def main() -> int:
