@@ -1,0 +1,67 @@
+name: PR build
+
+# Build on every pull request and publish executables as downloadable artifacts.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve build label
+        shell: bash
+        run: |
+          short_sha="${GITHUB_SHA::7}"
+          echo "BUILD_LABEL=pr-${{ github.event.pull_request.number }}-${short_sha}" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Build combined launcher
+        run: pyinstaller shell/build.spec
+
+      - name: Build individual apps
+        run: |
+          pyinstaller packages/app_comms/build.spec
+          pyinstaller packages/app_firmware/build.spec
+
+      - name: Package build
+        shell: bash
+        run: |
+          archive="introsat-toolbox-${{ matrix.platform }}-${{ env.BUILD_LABEL }}.tar.gz"
+          tar -czf "$archive" -C dist .
+          echo "ARCHIVE=$archive" >> "$GITHUB_ENV"
+
+      - name: Upload build as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: introsat-toolbox-${{ matrix.platform }}-${{ env.BUILD_LABEL }}
+          path: ${{ env.ARCHIVE }}
+          if-no-files-found: error
+          retention-days: 14

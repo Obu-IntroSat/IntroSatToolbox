@@ -1,15 +1,30 @@
 # PyInstaller spec to build ONLY the template app.
 # Build with:  pyinstaller packages/app_template/build.spec
-from PyInstaller.utils.hooks import collect_submodules
+import os
+
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 
 block_cipher = None
 
+SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
+PACKAGES = os.path.abspath(os.path.join(SPEC_DIR, ".."))
+
+pathex = [
+    os.path.join(PACKAGES, "core"),
+    SPEC_DIR,
+]
+
+hiddenimports = [
+    *collect_submodules("satcore"),
+    *collect_submodules("app_template"),
+]
+
 a = Analysis(
     ["app_template/__main__.py"],
-    pathex=[],
+    pathex=pathex,
     binaries=[],
-    datas=[],
-    hiddenimports=collect_submodules("app_template"),
+    datas=copy_metadata("satcore") + copy_metadata("app-template"),
+    hiddenimports=hiddenimports,
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
