@@ -96,7 +96,7 @@ commands:
     code: 107
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 3)" }
       - { name: address, type: uint8, description: "7-битный адрес устройства" }
     description: "Проверка наличия устройства на шине I2C"
 
@@ -104,7 +104,7 @@ commands:
     code: 108
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 3)" }
       - { name: address, type: uint8 }
       - { name: reg, type: uint8, description: "Адрес регистра" }
       - { name: len, type: uint8, description: "Количество байт для чтения (макс 8)" }
@@ -114,7 +114,7 @@ commands:
     code: 109
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 3)" }
       - { name: address, type: uint8 }
       - { name: reg, type: uint8 }
       - { name: data_len, type: uint8, description: "Длина данных (макс 8)" }
@@ -125,7 +125,7 @@ commands:
     code: 110
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 3)" }
       - { name: address, type: uint8 }
       - { name: data_len, type: uint8, description: "Длина данных (макс 64)" }
       - { name: data, type: "uint8[64]", description: "Данные для отправки" }
@@ -135,7 +135,7 @@ commands:
     code: 111
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 3)" }
       - { name: address, type: uint8 }
       - { name: len, type: uint8, description: "Количество байт для чтения (макс 64)" }
     description: "Чтение данных с устройства I2C"
@@ -191,7 +191,7 @@ commands:
     code: 120
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 3)" }
       - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 2 - PA8/PB4" }
       - { name: speed, type: uint32, description: "Частота в Гц" }
       - { name: addressing_mode, type: uint8, description: "0 - 7-битная адресация, 1 - 10-битная" }
@@ -201,7 +201,7 @@ commands:
     code: 121
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 3)" }
     description: "Деинициализация модуля I2C"
 
   - name: InitSpi
