@@ -1,8 +1,17 @@
 # Протокол общения ПК ↔ Тестовый стенд
 # Диапазоны кодов:
-#   0-99 – системные запросы
+#   0-99    – системные запросы
 #   100-199 – команды периферии
 #   200-255 – ответы
+
+# Коды ошибок (используются в поле error_code ответов):
+#   100 – неизвестная команда (КОП не найден)
+#   200 – ошибка инициализации UART
+#   210 – неверный номер UART
+#   220 – неверное количество стоп-битов
+#   230 – неверный режим чётности
+#   240 – неверная длина слова
+#   (позже будут добавлены коды для SPI и других интерфейсов)
 
 commands:
   # ========== СИСТЕМНЫЕ ЗАПРОСЫ (0-99) ==========
@@ -177,11 +186,11 @@ commands:
     code: 120
     type: request
     fields:
-      - { name: i2c_num, type: uint8, description: "Номер I2C (1,2,3)" }
-      - { name: scl_pin, type: uint8, description: "Номер пина для SCL (например, 6 для PB6)" }
-      - { name: sda_pin, type: uint8, description: "Номер пина для SDA (например, 7 для PB7)" }
-      - { name: speed, type: uint32, description: "Частота в Гц (например, 100000)" }
-    description: "Инициализация модуля I2C с указанием пинов"
+      - { name: i2c_num, type: uint8, description: "Номер аппаратного блока I2C (1 или 2)" }
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 2 - PA8/PB4" }
+      - { name: speed, type: uint32, description: "Частота в Гц" }
+      - { name: addressing_mode, type: uint8, description: "0 - 7-битная адресация, 1 - 10-битная" }
+    description: "Инициализация модуля I2C с выбором интерфейса и режима адресации"
 
   - name: DeinitI2c
     code: 121
@@ -228,7 +237,13 @@ commands:
   # ========== ОТВЕТЫ (200-255) ==========
   - name: VersionInfoResp
     code: 200
-    type: responsetest_emulator.py\
+    type: response
+    fields:
+      - { name: major, type: uint8 }
+      - { name: minor, type: uint8 }
+      - { name: patch, type: uint8 }
+    description: "Ответ на GetVersion"
+
   - name: StatusResp
     code: 201
     type: response
@@ -330,3 +345,12 @@ commands:
       - { name: status, type: uint8, description: "0 - OK, 1 - ERROR" }
       - { name: error_code, type: uint8, description: "Код ошибки (если status=1)" }
     description: "Общий ответ для команд без данных (инициализации, установка, запись и т.д.)"
+
+# ========== КОДЫ ОШИБОК ==========
+error_codes:
+  WRONG_OPCODE: 100
+  UART_INIT_FAIL: 200
+  UART_INVALID_NUM: 210
+  UART_INVALID_STOP_BITS: 220
+  UART_INVALID_PARITY: 230
+  UART_INVALID_DATA_BITS: 240

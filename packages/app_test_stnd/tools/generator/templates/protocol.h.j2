@@ -12,6 +12,13 @@
 #define {{ cmd.name.upper() }}_CODE {{ cmd.code }}
 {% endfor %}
 
+{% if error_codes %}
+// ---------- Коды ошибок ----------
+{% for name, code in error_codes.items() %}
+#define {{ name }} {{ code }}
+{% endfor %}
+{% endif %}
+
 {% for cmd in commands if cmd.type == 'request' %}
 /**
  * {{ cmd.description }}

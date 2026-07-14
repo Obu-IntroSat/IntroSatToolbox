@@ -45,6 +45,14 @@ SPIEXCHANGERESP_CODE = 211
 UARTRECEIVERESP_CODE = 212
 GENERICRESP_CODE = 250
 
+# ---------- Коды ошибок ----------
+WRONG_OPCODE = 100
+UART_INIT_FAIL = 200
+UART_INVALID_NUM = 210
+UART_INVALID_STOP_BITS = 220
+UART_INVALID_PARITY = 230
+UART_INVALID_DATA_BITS = 240
+
 # ---------- Вспомогательные функции ----------
 def _pack_value(value, field_type):
     """Упаковка одного значения в байты (для простых типов)."""
@@ -491,27 +499,27 @@ class UartReceive:
 
 class InitI2c:
     """
-    Инициализация модуля I2C с указанием пинов
+    Инициализация модуля I2C с выбором интерфейса и режима адресации
     Код команды: 120
     Поля:
-      - i2c_num (uint8) – Номер I2C (1,2,3)
-      - scl_pin (uint8) – Номер пина для SCL (например, 6 для PB6)
-      - sda_pin (uint8) – Номер пина для SDA (например, 7 для PB7)
-      - speed (uint32) – Частота в Гц (например, 100000)
+      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 2)
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 2 - PA8/PB4
+      - speed (uint32) – Частота в Гц
+      - addressing_mode (uint8) – 0 - 7-битная адресация, 1 - 10-битная
     """
-    def __init__(self, i2c_num, scl_pin, sda_pin, speed):
+    def __init__(self, i2c_num, i2c_interface, speed, addressing_mode):
         self.i2c_num = i2c_num
-        self.scl_pin = scl_pin
-        self.sda_pin = sda_pin
+        self.i2c_interface = i2c_interface
         self.speed = speed
+        self.addressing_mode = addressing_mode
 
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
         result += _pack_value(self.i2c_num, 'uint8')
-        result += _pack_value(self.scl_pin, 'uint8')
-        result += _pack_value(self.sda_pin, 'uint8')
+        result += _pack_value(self.i2c_interface, 'uint8')
         result += _pack_value(self.speed, 'uint32')
+        result += _pack_value(self.addressing_mode, 'uint8')
         return result
 
 class DeinitI2c:

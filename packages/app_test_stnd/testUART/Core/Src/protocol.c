@@ -357,12 +357,12 @@ uint8_t serialize_RequestInitI2c(const RequestInitI2c* req, uint8_t* buf) {
     uint8_t* ptr = buf;
     pack_uint8(req->i2c_num, ptr);
     ptr += 1;
-    pack_uint8(req->scl_pin, ptr);
-    ptr += 1;
-    pack_uint8(req->sda_pin, ptr);
+    pack_uint8(req->i2c_interface, ptr);
     ptr += 1;
     pack_uint32(req->speed, ptr);
     ptr += 4;
+    pack_uint8(req->addressing_mode, ptr);
+    ptr += 1;
     return ptr - buf;
 }
 
@@ -370,12 +370,12 @@ void deserialize_RequestInitI2c(const uint8_t* buf, RequestInitI2c* req) {
     const uint8_t* ptr = buf;
     req->i2c_num = unpack_uint8(ptr);
     ptr += 1;
-    req->scl_pin = unpack_uint8(ptr);
-    ptr += 1;
-    req->sda_pin = unpack_uint8(ptr);
+    req->i2c_interface = unpack_uint8(ptr);
     ptr += 1;
     req->speed = unpack_uint32(ptr);
     ptr += 4;
+    req->addressing_mode = unpack_uint8(ptr);
+    ptr += 1;
     (void)ptr;
 }
 uint8_t serialize_RequestDeinitI2c(const RequestDeinitI2c* req, uint8_t* buf) {

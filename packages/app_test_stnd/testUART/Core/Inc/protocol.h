@@ -47,6 +47,14 @@
 #define UARTRECEIVERESP_CODE 212
 #define GENERICRESP_CODE 250
 
+// ---------- Коды ошибок ----------
+#define WRONG_OPCODE 100
+#define UART_INIT_FAIL 200
+#define UART_INVALID_NUM 210
+#define UART_INVALID_STOP_BITS 220
+#define UART_INVALID_PARITY 230
+#define UART_INVALID_DATA_BITS 240
+
 /**
  * Запрос версии прошивки стенда
  * Код: 0
@@ -227,14 +235,14 @@ typedef struct {
 } RequestUartReceive;
 
 /**
- * Инициализация модуля I2C с указанием пинов
+ * Инициализация модуля I2C с выбором интерфейса и режима адресации
  * Код: 120
  */
 typedef struct {
     uint8_t i2c_num;
-    uint8_t scl_pin;
-    uint8_t sda_pin;
+    uint8_t i2c_interface;
     uint32_t speed;
+    uint8_t addressing_mode;
 } RequestInitI2c;
 
 /**

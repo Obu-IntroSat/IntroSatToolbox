@@ -10,6 +10,13 @@ from typing import Dict, Any, Optional
 {{ cmd.name.upper() }}_CODE = {{ cmd.code }}
 {% endfor %}
 
+# ---------- Коды ошибок ----------
+{% if error_codes %}
+{% for name, code in error_codes.items() %}
+{{ name }} = {{ code }}
+{% endfor %}
+{% endif %}
+
 # ---------- Вспомогательные функции ----------
 def _pack_value(value, field_type):
     """Упаковка одного значения в байты (для простых типов)."""
