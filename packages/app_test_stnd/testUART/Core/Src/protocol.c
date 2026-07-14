@@ -157,6 +157,8 @@ void deserialize_RequestEepromRead(const uint8_t* buf, RequestEepromRead* req) {
 }
 uint8_t serialize_RequestI2cProbe(const RequestI2cProbe* req, uint8_t* buf) {
     uint8_t* ptr = buf;
+    pack_uint8(req->i2c_num, ptr);
+    ptr += 1;
     pack_uint8(req->address, ptr);
     ptr += 1;
     return ptr - buf;
@@ -164,12 +166,16 @@ uint8_t serialize_RequestI2cProbe(const RequestI2cProbe* req, uint8_t* buf) {
 
 void deserialize_RequestI2cProbe(const uint8_t* buf, RequestI2cProbe* req) {
     const uint8_t* ptr = buf;
+    req->i2c_num = unpack_uint8(ptr);
+    ptr += 1;
     req->address = unpack_uint8(ptr);
     ptr += 1;
     (void)ptr;
 }
 uint8_t serialize_RequestI2cReadRegister(const RequestI2cReadRegister* req, uint8_t* buf) {
     uint8_t* ptr = buf;
+    pack_uint8(req->i2c_num, ptr);
+    ptr += 1;
     pack_uint8(req->address, ptr);
     ptr += 1;
     pack_uint8(req->reg, ptr);
@@ -181,6 +187,8 @@ uint8_t serialize_RequestI2cReadRegister(const RequestI2cReadRegister* req, uint
 
 void deserialize_RequestI2cReadRegister(const uint8_t* buf, RequestI2cReadRegister* req) {
     const uint8_t* ptr = buf;
+    req->i2c_num = unpack_uint8(ptr);
+    ptr += 1;
     req->address = unpack_uint8(ptr);
     ptr += 1;
     req->reg = unpack_uint8(ptr);
@@ -191,6 +199,8 @@ void deserialize_RequestI2cReadRegister(const uint8_t* buf, RequestI2cReadRegist
 }
 uint8_t serialize_RequestI2cWriteRegister(const RequestI2cWriteRegister* req, uint8_t* buf) {
     uint8_t* ptr = buf;
+    pack_uint8(req->i2c_num, ptr);
+    ptr += 1;
     pack_uint8(req->address, ptr);
     ptr += 1;
     pack_uint8(req->reg, ptr);
@@ -204,6 +214,8 @@ uint8_t serialize_RequestI2cWriteRegister(const RequestI2cWriteRegister* req, ui
 
 void deserialize_RequestI2cWriteRegister(const uint8_t* buf, RequestI2cWriteRegister* req) {
     const uint8_t* ptr = buf;
+    req->i2c_num = unpack_uint8(ptr);
+    ptr += 1;
     req->address = unpack_uint8(ptr);
     ptr += 1;
     req->reg = unpack_uint8(ptr);
@@ -216,6 +228,8 @@ void deserialize_RequestI2cWriteRegister(const uint8_t* buf, RequestI2cWriteRegi
 }
 uint8_t serialize_RequestI2cWrite(const RequestI2cWrite* req, uint8_t* buf) {
     uint8_t* ptr = buf;
+    pack_uint8(req->i2c_num, ptr);
+    ptr += 1;
     pack_uint8(req->address, ptr);
     ptr += 1;
     pack_uint8(req->data_len, ptr);
@@ -227,6 +241,8 @@ uint8_t serialize_RequestI2cWrite(const RequestI2cWrite* req, uint8_t* buf) {
 
 void deserialize_RequestI2cWrite(const uint8_t* buf, RequestI2cWrite* req) {
     const uint8_t* ptr = buf;
+    req->i2c_num = unpack_uint8(ptr);
+    ptr += 1;
     req->address = unpack_uint8(ptr);
     ptr += 1;
     req->data_len = unpack_uint8(ptr);
@@ -237,6 +253,8 @@ void deserialize_RequestI2cWrite(const uint8_t* buf, RequestI2cWrite* req) {
 }
 uint8_t serialize_RequestI2cRead(const RequestI2cRead* req, uint8_t* buf) {
     uint8_t* ptr = buf;
+    pack_uint8(req->i2c_num, ptr);
+    ptr += 1;
     pack_uint8(req->address, ptr);
     ptr += 1;
     pack_uint8(req->len, ptr);
@@ -246,6 +264,8 @@ uint8_t serialize_RequestI2cRead(const RequestI2cRead* req, uint8_t* buf) {
 
 void deserialize_RequestI2cRead(const uint8_t* buf, RequestI2cRead* req) {
     const uint8_t* ptr = buf;
+    req->i2c_num = unpack_uint8(ptr);
+    ptr += 1;
     req->address = unpack_uint8(ptr);
     ptr += 1;
     req->len = unpack_uint8(ptr);
