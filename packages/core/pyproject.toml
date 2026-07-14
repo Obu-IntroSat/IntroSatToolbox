@@ -1,21 +1,17 @@
-[project]
-name = "app_firmware_gitrepo"
-version = "0.1.0"
-description = "Firmware flashing from Git repositories for STM32 and ATmega"
-readme = "README.md"
-requires-python = ">=3.10"
-dependencies = [
-    "satcore",
-    "PySide6>=6.6",
-    "requests>=2.28.0",
-]
-
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-[project.scripts]
-app-firmware-gitrepo = "app_firmware_gitrepo.__main__:main"
+[project]
+name = "satcore"
+version = "0.1.0"
+description = "Shared core for IntroSat Toolbox apps (plugin contract, serial, process helpers)"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6",
+    "pyserial>=3.5",
+]
 
-[project.entry-points."introsat.apps"]
-firmware_gitrepo = "app_firmware_gitrepo.plugin:FirmwareGitRepoPlugin"
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["satcore*"]
