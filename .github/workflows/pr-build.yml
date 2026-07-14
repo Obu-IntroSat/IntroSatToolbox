@@ -39,17 +39,41 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        shell: bash
         run: |
+          set -euo pipefail
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
+          pip install -e packages/core
+          pip install -e shell
+          for pkg_dir in packages/*/; do
+            pkg_name="$(basename "$pkg_dir")"
+            if [ "$pkg_name" = "core" ]; then
+              continue
+            fi
+            if [ -f "${pkg_dir}pyproject.toml" ]; then
+              echo "Installing ${pkg_dir}"
+              pip install -e "$pkg_dir"
+            fi
+          done
+          pip install "pyinstaller>=6.0"
 
       - name: Build combined launcher
         run: pyinstaller shell/build.spec
 
       - name: Build individual apps
+        shell: bash
         run: |
-          pyinstaller packages/app_comms/build.spec
-          pyinstaller packages/app_firmware/build.spec
+          set -euo pipefail
+          shopt -s nullglob
+          specs=(packages/*/build.spec)
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No build.spec files found under packages/"
+            exit 1
+          fi
+          for spec in "${specs[@]}"; do
+            echo "Building ${spec}"
+            pyinstaller "${spec}"
+          done
 
       - name: Package build
         shell: bash
