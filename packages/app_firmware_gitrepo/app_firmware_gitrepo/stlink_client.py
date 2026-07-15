@@ -26,98 +26,85 @@ class STLinkClient:
     def _get_stlink_bin_path(self) -> Optional[Path]:
         """
         Определяет путь к папке с бинарниками ST-Link.
-        Сначала проверяет локальную папку в приложении, затем системный PATH.
+        Проверяет несколько возможных мест.
         """
-        # 1. Проверяем локальную папку рядом со скриптом
-        local_bin = Path(__file__).parent / "bin"
-        if local_bin.exists() and any(local_bin.glob("st-info*")):
-            return local_bin
+        # Список возможных путей
+        possible_paths = []
         
-        # 2. Проверяем папку, где находится сам скрипт (для PyInstaller)
+        # 1. Папка bin рядом с исполняемым файлом (для собранного приложения)
         if getattr(sys, 'frozen', False):
-            # Запущено как собранное приложение
-            app_path = Path(sys.executable).parent
-            local_bin_frozen = app_path / "bin"
-            if local_bin_frozen.exists() and any(local_bin_frozen.glob("st-info*")):
-                return local_bin_frozen
+            app_dir = Path(sys.executable).parent
+            possible_paths.append(app_dir / "bin")
+            possible_paths.append(app_dir / ".." / "bin")
         
-        # 3. Проверяем папку с бинарниками через переменную окружения
+        # 2. Папка bin в папке с приложением (для разработки)
+        possible_paths.append(Path(__file__).parent / "bin")
+        possible_paths.append(Path(__file__).parent.parent / "bin")
+        possible_paths.append(Path(__file__).parent.parent.parent / "bin")
+        
+        # 3. Папка bin в корне проекта (для CI/CD сборок)
+        possible_paths.append(Path.cwd() / "bin")
+        possible_paths.append(Path.cwd().parent / "bin")
+        
+        # 4. Переменная окружения
         env_bin = os.environ.get('STLINK_BIN_PATH')
         if env_bin:
-            env_bin_path = Path(env_bin)
-            if env_bin_path.exists() and any(env_bin_path.glob("st-info*")):
-                return env_bin_path
+            possible_paths.append(Path(env_bin))
         
-        # 4. Если ничего не нашли, возвращаем None (будем искать в PATH)
+        # Проверяем каждый путь
+        for path in possible_paths:
+            try:
+                if path and path.exists():
+                    # Проверяем, есть ли st-info
+                    if sys.platform == 'win32':
+                        st_info_path = path / "st-info.exe"
+                    else:
+                        st_info_path = path / "st-info"
+                    
+                    if st_info_path.exists():
+                        print(f"[DEBUG] ST-Link бинарники найдены в: {path}")
+                        return path
+            except Exception:
+                pass
+        
+        print("[DEBUG] ST-Link бинарники не найдены ни в одном из путей")
         return None
-    
-    def _get_st_command_path(self, command: str) -> Optional[Path]:
-        """
-        Возвращает полный путь к команде ST-Link.
-        """
-        # Добавляем .exe для Windows
-        if sys.platform == 'win32' and not command.endswith('.exe'):
-            command_exe = command + '.exe'
-        else:
-            command_exe = command
-        
-        # Проверяем локальную папку
-        if self.stlink_bin_path:
-            local_path = self.stlink_bin_path / command_exe
-            if local_path.exists():
-                return local_path
-        
-        # Проверяем системный PATH через which/where
-        try:
-            import shutil
-            system_path = shutil.which(command)
-            if system_path:
-                return Path(system_path)
-        except Exception:
-            pass
-        
-        return None
-    
-    def _run_st_command(self, args: list, timeout: int = 10, check: bool = True) -> subprocess.CompletedProcess:
-        """
-        Запускает команду ST-Link, используя локальные файлы или системные.
-        """
-        command = args[0]
-        cmd_args = args[1:] if len(args) > 1 else []
-        
-        # Пытаемся найти команду
-        cmd_path = self._get_st_command_path(command)
-        
-        if cmd_path:
-            cmd = [str(cmd_path)] + cmd_args
-        else:
-            # Если не нашли, пробуем использовать как есть (может быть в PATH)
-            cmd = args
-        
-        # Добавляем .exe для Windows если нужно
-        if sys.platform == 'win32' and not cmd[0].endswith('.exe'):
-            cmd[0] = cmd[0] + '.exe'
-        
-        return subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=check
-        )
     
     def _check_stlink_available(self) -> bool:
         """Проверяет, доступен ли ST-Link (локально или в системе)."""
+        # 1. Проверяем локальные бинарники
+        if self.stlink_bin_path:
+            try:
+                st_info_path = self.stlink_bin_path / ("st-info.exe" if sys.platform == 'win32' else "st-info")
+                if st_info_path.exists():
+                    result = subprocess.run(
+                        [str(st_info_path), "--version"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if result.returncode == 0:
+                        print("[DEBUG] ST-Link работает из локальной папки")
+                        return True
+            except Exception:
+                pass
+        
+        # 2. Проверяем системный PATH
         try:
-            # Проверяем через st-info --version
-            result = self._run_st_command(
+            result = subprocess.run(
                 ["st-info", "--version"],
-                timeout=5,
-                check=False
+                capture_output=True,
+                text=True,
+                timeout=5
             )
-            return result.returncode == 0
+            if result.returncode == 0:
+                print("[DEBUG] ST-Link работает из системного PATH")
+                return True
         except Exception:
-            return False
+            pass
+        
+        print("[DEBUG] ST-Link не найден")
+        return False
     
     def get_stlink_info(self) -> Dict[str, str]:
         """Возвращает информацию о ST-Link программаторе."""
@@ -131,18 +118,46 @@ class STLinkClient:
             return info
         
         try:
-            result = self._run_st_command(
+            # Используем локальные или системные бинарники
+            if self.stlink_bin_path:
+                st_info_path = self.stlink_bin_path / ("st-info.exe" if sys.platform == 'win32' else "st-info")
+                if st_info_path.exists():
+                    result = subprocess.run(
+                        [str(st_info_path), "--version"],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                        timeout=5
+                    )
+                    info["version"] = result.stdout.strip()
+                    
+                    result = subprocess.run(
+                        [str(st_info_path), "--probe"],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                        timeout=5
+                    )
+                    if "Found 1 stlink programmers" in result.stdout:
+                        info["connected"] = True
+                    return info
+            
+            # Fallback на системные команды
+            result = subprocess.run(
                 ["st-info", "--version"],
-                timeout=5,
-                check=True
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5
             )
             info["version"] = result.stdout.strip()
             
-            # Проверяем через probe, есть ли подключенное устройство
-            result = self._run_st_command(
+            result = subprocess.run(
                 ["st-info", "--probe"],
-                timeout=5,
-                check=True
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5
             )
             if "Found 1 stlink programmers" in result.stdout:
                 info["connected"] = True
@@ -155,10 +170,26 @@ class STLinkClient:
     def _run_st_info(self, arg: str) -> str:
         """Выполняет одну команду st-info и возвращает вывод."""
         try:
-            result = self._run_st_command(
+            # Пытаемся использовать локальные бинарники
+            if self.stlink_bin_path:
+                st_info_path = self.stlink_bin_path / ("st-info.exe" if sys.platform == 'win32' else "st-info")
+                if st_info_path.exists():
+                    result = subprocess.run(
+                        [str(st_info_path), arg],
+                        capture_output=True,
+                        text=True,
+                        check=True,
+                        timeout=5
+                    )
+                    return result.stdout.strip()
+            
+            # Fallback на системные команды
+            result = subprocess.run(
                 ["st-info", arg],
-                timeout=5,
-                check=True
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=5
             )
             return result.stdout.strip()
         except Exception:
@@ -194,14 +225,12 @@ class STLinkClient:
             return False, "ST-Link не найден. Установите st-link (https://github.com/stlink-org/stlink) или добавьте бинарники в папку bin"
         
         try:
-            # Вызываем каждый параметр отдельно
             chipid = self._run_st_info("--chipid")
             serial = self._run_st_info("--serial")
             flash = self._run_st_info("--flash")
             sram = self._run_st_info("--sram")
             descr = self._run_st_info("--descr")
             
-            # Проверяем, что устройство найдено
             if not chipid and not serial:
                 return False, "Устройство не найдено. Проверьте подключение программатора"
             
@@ -251,13 +280,12 @@ class STLinkClient:
         
         return info
     
-    def flash(self, firmware_path: str, verify: bool = True) -> Tuple[bool, str]:
+    def flash(self, firmware_path: str) -> Tuple[bool, str]:
         """
         Прошивает устройство.
         
         Args:
             firmware_path: Путь к файлу прошивки
-            verify: Проверять после прошивки (всегда False)
             
         Returns:
             (success, message)
@@ -269,28 +297,37 @@ class STLinkClient:
             return False, f"Файл прошивки не найден: {firmware_path}"
         
         try:
-            # Формируем команду БЕЗ verify
-            # st-flash write <path> <addr>
-            cmd = ["st-flash", "write", firmware_path, "0x08000000"]
+            # Используем локальные бинарники или системные
+            cmd = []
+            if self.stlink_bin_path:
+                st_flash_path = self.stlink_bin_path / ("st-flash.exe" if sys.platform == 'win32' else "st-flash")
+                if st_flash_path.exists():
+                    cmd = [str(st_flash_path), "write", firmware_path, "0x08000000"]
             
-            # Выполняем прошивку через _run_st_command
-            result = self._run_st_command(
+            if not cmd:
+                cmd = ["st-flash", "write", firmware_path, "0x08000000"]
+            
+            result = subprocess.run(
                 cmd,
-                timeout=120,
-                check=True
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=120
             )
             
-            # Проверяем вывод на ошибки
             if "error" in result.stdout.lower() or "failed" in result.stdout.lower():
                 return False, "Ошибка при прошивке"
             
-            # После успешной прошивки выполняем сброс
+            # Сброс
             try:
-                self._run_st_command(
-                    ["st-flash", "reset"],
-                    timeout=5,
-                    check=False
-                )
+                if self.stlink_bin_path:
+                    st_flash_path = self.stlink_bin_path / ("st-flash.exe" if sys.platform == 'win32' else "st-flash")
+                    if st_flash_path.exists():
+                        subprocess.run([str(st_flash_path), "reset"], capture_output=True, timeout=5)
+                    else:
+                        subprocess.run(["st-flash", "reset"], capture_output=True, timeout=5)
+                else:
+                    subprocess.run(["st-flash", "reset"], capture_output=True, timeout=5)
             except Exception:
                 pass
             
