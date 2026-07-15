@@ -14,24 +14,23 @@ APP_DISTRIBUTIONS = [
     "app-comms",
     "app-firmware",
     "app-template",
-    "app-firmware-gitrepo",  # ← Добавляем ваше приложение
+    "app-firmware-gitrepo",
 ]
 APP_PACKAGES = [
     "app_comms",
     "app_firmware",
     "app_template",
-    "app_firmware_gitrepo",  # ← Добавляем ваш пакет
+    "app_firmware_gitrepo",
 ]
 
 datas = []
 hiddenimports = []
+
 for dist in APP_DISTRIBUTIONS:
     datas += copy_metadata(dist)
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
-# === ДОБАВЛЯЕМ БИНАРНИКИ ST-Link ===
-# Путь к папке с бинарниками ST-Link
 STLINK_BIN_DIR = Path(__file__).parent.parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin"
 
 stlink_binaries = []
@@ -46,7 +45,7 @@ else:
 a = Analysis(
     ["shell/main.py"],
     pathex=[],
-    binaries=stlink_binaries,  # ← Добавляем бинарники ST-Link
+    binaries=stlink_binaries,
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
