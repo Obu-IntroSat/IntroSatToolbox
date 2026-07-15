@@ -5,6 +5,7 @@
 # bundled. List every app distribution you want included below.
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 from pathlib import Path
+import os
 import sys
 
 block_cipher = None
@@ -31,7 +32,14 @@ for dist in APP_DISTRIBUTIONS:
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
-STLINK_BIN_DIR = Path(__file__).parent.parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin"
+# === ДОБАВЛЯЕМ БИНАРНИКИ ST-Link ===
+# Используем os.getcwd() вместо __file__
+SPEC_DIR = Path(os.getcwd())
+STLINK_BIN_DIR = SPEC_DIR.parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin"
+
+# Альтернативный путь, если первый не работает
+if not STLINK_BIN_DIR.exists():
+    STLINK_BIN_DIR = SPEC_DIR / ".." / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin"
 
 stlink_binaries = []
 if STLINK_BIN_DIR.exists():
