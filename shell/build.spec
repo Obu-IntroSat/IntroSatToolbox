@@ -32,23 +32,28 @@ for dist in APP_DISTRIBUTIONS:
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
-# === ДОБАВЛЯЕМ БИНАРНИКИ ST-Link ===
-# Используем os.getcwd() вместо __file__
-SPEC_DIR = Path(os.getcwd())
-STLINK_BIN_DIR = SPEC_DIR.parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin"
+# === ADD ST-Link BINARIES ===
+# Search for binaries in multiple locations
+possible_paths = [
+    Path(os.getcwd()).parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
+    Path(os.getcwd()) / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
+    Path(os.getcwd()).parent.parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
+]
 
-# Альтернативный путь, если первый не работает
-if not STLINK_BIN_DIR.exists():
-    STLINK_BIN_DIR = SPEC_DIR / ".." / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin"
+STLINK_BIN_DIR = None
+for path in possible_paths:
+    if path.exists():
+        STLINK_BIN_DIR = path
+        break
 
 stlink_binaries = []
-if STLINK_BIN_DIR.exists():
+if STLINK_BIN_DIR and STLINK_BIN_DIR.exists():
     for file in STLINK_BIN_DIR.iterdir():
         if file.is_file():
             stlink_binaries.append((str(file), "bin"))
-            print(f"[build.spec] Добавлен бинарник ST-Link: {file.name}")
+            print(f"[build.spec] Added ST-Link binary: {file.name}")
 else:
-    print(f"[build.spec] ВНИМАНИЕ: папка с бинарниками ST-Link не найдена: {STLINK_BIN_DIR}")
+    print(f"[build.spec] WARNING: ST-Link binaries folder not found")
 
 a = Analysis(
     ["shell/main.py"],
