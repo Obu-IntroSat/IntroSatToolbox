@@ -4,8 +4,11 @@
 -e packages/app_comms
 -e packages/app_firmware
 -e packages/app_template
--e packages/camera_vibe2k26summer
+-e packages/cam_introsat
 -e shell
 
 # Build tool for producing executables.
 pyinstaller>=6.0
+PySide6>=6.4.0
+pyserial>=3.5
+Pillow>=9.0.0

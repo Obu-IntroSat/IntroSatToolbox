@@ -14,28 +14,42 @@ class CameraCommandConfig:
     description: str = ""
     version: str = ""
     
-    capture: str = "t"
-    properties: str = "p"
-    next_chunk: str = "n"
-    set_size: str = "s"
-    set_exposure: str = "e"
-    start_transfer: str = "r"
-    get_version: str = "v"
+    # Команды согласно документации CM 2.0 HowTo.pdf
+    capture: str = "t"          # 0x74 - сделать снимок
+    properties: str = "p"       # 0x70 - запрос данных снимка
+    next_chunk: str = "n"       # 0x6e - запрос следующего пакета
+    set_size: str = "s"         # 0x73 - изменение размера
+    set_exposure: str = "e"     # 0x65 - изменение экспозиции
+    start_transfer: str = ""    # не используется в CM 2.0
+    get_version: str = "v"      # запрос версии
     
     baudrate: int = 230400
     preamble: str = "ffff00"
     postamble: str = "00ff00"
-    chunk_size: int = 240
+    chunk_size: int = 240       # размер полезной нагрузки в байтах
     property_size: int = 18
     timeout_capture: float = 15.0
     timeout_chunk: float = 2.0
     timeout_version: float = 1.0
     
-    property_format: str = "<HHHHHHLH"
-    chunk_format: str = "<HH?240BB"
+    # Формат для распаковки свойств (18 байт)
+    property_format: str = "<HHHHHHLH"   # height, width, vStart, hStart, colorspace, exposure, length, chunks
+    
+    # Формат для распаковки чанка (247 байт)
+    # chunkID(2) + payloadLength(2) + isLast(1) + payload(240) + checksum(2)
+    chunk_format: str = "<HH?240BH"
+    
+    @property
+    def chunk_packet_size(self) -> int:
+        """Полный размер пакета чанка (с заголовками и контрольной суммой)"""
+        # 2 + 2 + 1 + 240 + 2 = 247
+        return 247
     
     def get_command_bytes(self, cmd: str) -> bytes:
+        """Преобразует команду в байты для отправки"""
         cmd = cmd.strip()
+        if not cmd:
+            return b''
         if cmd.startswith('0x'):
             return bytes([int(cmd, 16)])
         elif cmd.isdigit():

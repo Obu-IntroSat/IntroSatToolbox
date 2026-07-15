@@ -17,7 +17,8 @@ class ProtocolHandler:
         self.ser: Optional[serial.Serial] = None
         self._chunk_struct = struct.Struct(config.chunk_format)
         self._prop_struct = struct.Struct(config.property_format)
-        self._chunk_buffer = bytearray(config.chunk_size + 8)
+        # Размер буфера для чанка (ровно 247 байт)
+        self._chunk_buffer = bytearray(config.chunk_packet_size)
     
     def connect(self, port: str) -> bool:
         try:
@@ -79,28 +80,30 @@ class ProtocolHandler:
         return data
     
     def read_chunk(self) -> Optional[tuple]:
+        """Читает один полный чанк (247 байт) и возвращает распакованный кортеж"""
         if not self.ser or not self.ser.is_open:
             return None
         
         preamble = bytes.fromhex(self.config.preamble)
-        chunk_size = self.config.chunk_size + 8
+        packet_size = self.config.chunk_packet_size  # 247
         chunk_buffer = self._chunk_buffer
         
+        # Ждём преамбулу
         self.read_until(preamble, timeout=self.config.timeout_chunk)
         
         read_total = 0
         start_time = time.time()
         timeout = self.config.timeout_chunk
         
-        while read_total < chunk_size and (time.time() - start_time) < timeout:
+        while read_total < packet_size and (time.time() - start_time) < timeout:
             if self.ser.in_waiting > 0:
                 available = self.ser.in_waiting
-                to_read = min(available, chunk_size - read_total)
+                to_read = min(available, packet_size - read_total)
                 chunk_buffer[read_total:read_total + to_read] = self.ser.read(to_read)
                 read_total += to_read
             time.sleep(0.0005)
         
-        if read_total < chunk_size:
+        if read_total < packet_size:
             return None
         
         try:
