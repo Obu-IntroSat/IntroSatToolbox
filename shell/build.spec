@@ -4,12 +4,24 @@
 # The launcher finds apps through entry point metadata, so that metadata must be
 # bundled. List every app distribution you want included below.
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+from pathlib import Path
+import sys
 
 block_cipher = None
 
 # Apps to bundle into the combined executable.
-APP_DISTRIBUTIONS = ["app-comms", "app-firmware", "app-template"]
-APP_PACKAGES = ["app_comms", "app_firmware", "app_template"]
+APP_DISTRIBUTIONS = [
+    "app-comms",
+    "app-firmware",
+    "app-template",
+    "app-firmware-gitrepo",  # ← Добавляем ваше приложение
+]
+APP_PACKAGES = [
+    "app_comms",
+    "app_firmware",
+    "app_template",
+    "app_firmware_gitrepo",  # ← Добавляем ваш пакет
+]
 
 datas = []
 hiddenimports = []
@@ -18,10 +30,23 @@ for dist in APP_DISTRIBUTIONS:
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
+# === ДОБАВЛЯЕМ БИНАРНИКИ ST-Link ===
+# Путь к папке с бинарниками ST-Link
+STLINK_BIN_DIR = Path(__file__).parent.parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin"
+
+stlink_binaries = []
+if STLINK_BIN_DIR.exists():
+    for file in STLINK_BIN_DIR.iterdir():
+        if file.is_file():
+            stlink_binaries.append((str(file), "bin"))
+            print(f"[build.spec] Добавлен бинарник ST-Link: {file.name}")
+else:
+    print(f"[build.spec] ВНИМАНИЕ: папка с бинарниками ST-Link не найдена: {STLINK_BIN_DIR}")
+
 a = Analysis(
     ["shell/main.py"],
     pathex=[],
-    binaries=[],
+    binaries=stlink_binaries,  # ← Добавляем бинарники ST-Link
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
