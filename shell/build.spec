@@ -2,7 +2,10 @@
 # Build with:  pyinstaller shell/build.spec
 #
 # The launcher finds apps through entry point metadata, so that metadata must be
-# bundled. List every app distribution you want included below.
+# bundled. Tab apps are discovered automatically from packages/*/pyproject.toml.
+import os
+import tomllib
+
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 from pathlib import Path
 import sys
@@ -25,9 +28,9 @@ APP_PACKAGES = [
 
 datas = []
 hiddenimports = []
-for dist in APP_DISTRIBUTIONS:
+for dist in ALL_DISTRIBUTIONS:
     datas += copy_metadata(dist)
-for pkg in APP_PACKAGES:
+for pkg in ALL_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
 # === ДОБАВЛЯЕМ БИНАРНИКИ ST-Link ===

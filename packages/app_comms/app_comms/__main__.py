@@ -6,7 +6,7 @@ import sys
 
 from satcore import run_standalone
 
-from .plugin import CommsPlugin
+from app_comms.plugin import CommsPlugin
 
 
 def main() -> int:
