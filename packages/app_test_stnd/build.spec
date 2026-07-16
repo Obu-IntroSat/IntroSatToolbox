@@ -5,7 +5,7 @@ from PyInstaller.utils.hooks import collect_submodules
 block_cipher = None
 
 a = Analysis(
-    ["app_template/__main__.py"],
+    ["app_test_stnd/__main__.py"],
     pathex=[],
     binaries=[],
     datas=[],
@@ -23,6 +23,6 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="app-template",
+    name="app-test-stnd",
     console=False,
 )
