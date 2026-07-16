@@ -8,17 +8,15 @@ import shutil
 SPEC_DIR = Path(os.getcwd())
 print(f"SPEC_DIR: {SPEC_DIR}")
 
-
-PACKAGES_DIR = SPEC_DIR.parent.parent / "packages"
+PACKAGES_DIR = SPEC_DIR / "packages"
 CORE_DIR = PACKAGES_DIR / "core"
 SATCORE_DIR = CORE_DIR / "satcore"
-APP_DIR = SPEC_DIR / "app_firmware_gitrepo"
+APP_DIR = PACKAGES_DIR / "app_firmware_gitrepo" / "app_firmware_gitrepo"
 
 print(f"PACKAGES_DIR: {PACKAGES_DIR}")
 print(f"CORE_DIR: {CORE_DIR}")
 print(f"SATCORE_DIR: {SATCORE_DIR}")
 print(f"APP_DIR: {APP_DIR}")
-
 
 datas = []
 if SATCORE_DIR.exists():
@@ -27,13 +25,11 @@ if SATCORE_DIR.exists():
         datas.append((str(file), str(rel_path.parent)))
         print(f"added: {rel_path}")
 
-
-config_file = SPEC_DIR / "firmware_repositories.json"
+config_file = APP_DIR.parent / "firmware_repositories.json"
 if config_file.exists():
     datas.append((str(config_file), "."))
     print(f"config added: {config_file.name}")
 
-#
 bin_files = []
 STLINK_BIN_DIR = APP_DIR / "bin"
 if STLINK_BIN_DIR.exists():
@@ -41,7 +37,6 @@ if STLINK_BIN_DIR.exists():
         if file.is_file():
             bin_files.append((str(file), "bin"))
             print(f"bin files added: {file.name}")
-
 
 a = Analysis(
     [str(APP_DIR / "__main__.py")],
@@ -112,7 +107,6 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
-
 
 dist_dir = Path('dist')
 dist_dir.mkdir(exist_ok=True)
