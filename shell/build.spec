@@ -4,72 +4,24 @@
 # The launcher finds apps through entry point metadata, so that metadata must be
 # bundled. List every app distribution you want included below.
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
-from pathlib import Path
-import os
-import sys
 
 block_cipher = None
 
 # Apps to bundle into the combined executable.
-APP_DISTRIBUTIONS = [
-    "app-comms",
-    "app-firmware",
-    "app-template",
-    "app-firmware-gitrepo",
-]
-APP_PACKAGES = [
-    "app_comms",
-    "app_firmware",
-    "app_template",
-    "app_firmware_gitrepo",
-]
+APP_DISTRIBUTIONS = ["app-comms", "app-firmware", "app-template"]
+APP_PACKAGES = ["app_comms", "app_firmware", "app_template"]
 
 datas = []
 hiddenimports = []
-
 for dist in APP_DISTRIBUTIONS:
     datas += copy_metadata(dist)
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
-hiddenimports += collect_submodules('satcore')
-
-try:
-    import satcore
-    satcore_path = Path(satcore.__file__).parent
-    if satcore_path.exists():
-        for file in satcore_path.rglob('*.py'):
-            rel_path = file.relative_to(satcore_path.parent.parent)
-            datas.append((str(file), str(rel_path.parent)))
-            print(f"[build.spec] Added satcore file: {rel_path}")
-except Exception as e:
-    print(f"[build.spec] Warning: Could not add satcore: {e}")
-
-possible_paths = [
-    Path(os.getcwd()).parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
-    Path(os.getcwd()) / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
-    Path(os.getcwd()).parent.parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
-]
-
-STLINK_BIN_DIR = None
-for path in possible_paths:
-    if path.exists():
-        STLINK_BIN_DIR = path
-        break
-
-stlink_binaries = []
-if STLINK_BIN_DIR and STLINK_BIN_DIR.exists():
-    for file in STLINK_BIN_DIR.iterdir():
-        if file.is_file():
-            stlink_binaries.append((str(file), "bin"))
-            print(f"[build.spec] Added ST-Link binary: {file.name}")
-else:
-    print(f"[build.spec] WARNING: ST-Link binaries folder not found")
-
 a = Analysis(
     ["shell/main.py"],
     pathex=[],
-    binaries=stlink_binaries,
+    binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

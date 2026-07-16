@@ -5,11 +5,10 @@ import os
 from pathlib import Path
 import shutil
 
-# Получаем путь к папке, где находится build.spec
 SPEC_DIR = Path(os.getcwd())
 print(f"SPEC_DIR: {SPEC_DIR}")
 
-# Пути к модулям
+
 PACKAGES_DIR = SPEC_DIR.parent.parent / "packages"
 CORE_DIR = PACKAGES_DIR / "core"
 SATCORE_DIR = CORE_DIR / "satcore"
@@ -20,37 +19,36 @@ print(f"CORE_DIR: {CORE_DIR}")
 print(f"SATCORE_DIR: {SATCORE_DIR}")
 print(f"APP_DIR: {APP_DIR}")
 
-# Собираем все .py файлы из satcore
+
 datas = []
 if SATCORE_DIR.exists():
     for file in SATCORE_DIR.rglob('*.py'):
-        # Сохраняем структуру: satcore/__init__.py, satcore/plugin.py и т.д.
-        rel_path = file.relative_to(CORE_DIR.parent)  # от packages/
+        rel_path = file.relative_to(CORE_DIR.parent)
         datas.append((str(file), str(rel_path.parent)))
-        print(f"Добавлен: {rel_path}")
+        print(f"added: {rel_path}")
 
-# Добавляем файлы конфигурации
+
 config_file = SPEC_DIR / "firmware_repositories.json"
 if config_file.exists():
     datas.append((str(config_file), "."))
-    print(f"Добавлен конфиг: {config_file.name}")
+    print(f"config added: {config_file.name}")
 
-# Бинарники ST-Link
+#
 bin_files = []
 STLINK_BIN_DIR = APP_DIR / "bin"
 if STLINK_BIN_DIR.exists():
     for file in STLINK_BIN_DIR.iterdir():
         if file.is_file():
             bin_files.append((str(file), "bin"))
-            print(f"Добавлен бинарник: {file.name}")
+            print(f"bin files added: {file.name}")
 
-# Анализ
+
 a = Analysis(
     [str(APP_DIR / "__main__.py")],
     pathex=[
-        str(PACKAGES_DIR),  # Добавляем packages в путь
-        str(CORE_DIR),      # Добавляем core в путь
-        str(SPEC_DIR),      # Добавляем текущую папку
+        str(PACKAGES_DIR),
+        str(CORE_DIR),
+        str(SPEC_DIR),
     ],
     binaries=bin_files,
     datas=datas,
@@ -115,7 +113,7 @@ exe = EXE(
     entitlements_file=None,
 )
 
-# Копируем бинарники в папку dist/bin
+
 dist_dir = Path('dist')
 dist_dir.mkdir(exist_ok=True)
 
