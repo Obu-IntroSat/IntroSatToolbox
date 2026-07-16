@@ -5,6 +5,7 @@
 # bundled. List every app distribution you want included below.
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 from pathlib import Path
+import os
 
 block_cipher = None
 
@@ -46,15 +47,16 @@ try:
 except Exception as e:
     print(f"[build.spec] Warning: Could not add satcore: {e}")
 
+spec_dir = Path(os.getcwd())
 for pkg in APP_PACKAGES:
-    egg_info_path = Path(__file__).parent.parent / "packages" / pkg / f"{pkg}.egg-info"
+    egg_info_path = spec_dir.parent / "packages" / pkg / f"{pkg}.egg-info"
     if egg_info_path.exists():
         for file in egg_info_path.rglob('*'):
             if file.is_file():
                 datas.append((str(file), f"{pkg}.egg-info"))
                 print(f"[build.spec] Added egg-info: {file}")
     else:
-        print(f"[build.spec] Warning: egg-info not found for {pkg}")
+        print(f"[build.spec] Warning: egg-info not found for {pkg} at {egg_info_path}")
 
 a = Analysis(
     ["shell/main.py"],
