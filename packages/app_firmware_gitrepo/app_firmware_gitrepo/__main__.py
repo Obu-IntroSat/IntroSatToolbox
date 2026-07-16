@@ -10,14 +10,12 @@ from pathlib import Path
 def setup_paths():
     if getattr(sys, 'frozen', False):
         app_dir = Path(sys.executable).parent
-        plugin_dir = Path(__file__).parent
 
         possible_paths = [
-            plugin_dir.parent.parent / "core",
-            plugin_dir.parent / "core",
             app_dir / "packages" / "core",
             app_dir.parent / "packages" / "core",
             app_dir / "core",
+            app_dir / ".." / "packages" / "core",
         ]
 
         for path in possible_paths:
