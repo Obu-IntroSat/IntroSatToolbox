@@ -9,25 +9,28 @@ from PySide6.QtWidgets import QWidget
 
 
 def setup_satcore_path():
-    """Add satcore to path for frozen application."""
     if getattr(sys, 'frozen', False):
+        plugin_dir = Path(__file__).parent
+        packages_dir = plugin_dir.parent.parent
+
+        core_path = packages_dir / "core"
+        if core_path.exists():
+            path_str = str(core_path)
+            if path_str not in sys.path:
+                sys.path.insert(0, path_str)
+                print(f"[DEBUG] Added satcore from plugin: {core_path}")
+            return
+
         app_dir = Path(sys.executable).parent
+        alt_core_path = app_dir / "packages" / "core"
+        if alt_core_path.exists():
+            path_str = str(alt_core_path)
+            if path_str not in sys.path:
+                sys.path.insert(0, path_str)
+                print(f"[DEBUG] Added satcore from app_dir: {alt_core_path}")
+            return
 
-        possible_paths = [
-            app_dir / "packages" / "core",
-            app_dir.parent / "packages" / "core",
-            app_dir.parent.parent / "packages" / "core",
-            app_dir / "core",
-            Path(sys.executable).parent / "packages" / "core",
-        ]
-
-        for path in possible_paths:
-            if path.exists():
-                path_str = str(path)
-                if path_str not in sys.path:
-                    sys.path.insert(0, path_str)
-                    print(f"[DEBUG] Added satcore path: {path}")
-                break
+        print("[DEBUG] satcore path not found from plugin")
 
 
 setup_satcore_path()

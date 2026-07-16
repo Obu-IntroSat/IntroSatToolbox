@@ -8,34 +8,25 @@ from pathlib import Path
 
 
 def setup_paths():
-    """Add paths to modules for frozen application."""
     if getattr(sys, 'frozen', False):
         app_dir = Path(sys.executable).parent
+        plugin_dir = Path(__file__).parent
 
         possible_paths = [
-            app_dir / "packages",
-            app_dir.parent / "packages",
-            app_dir.parent.parent / "packages",
-            Path(os.path.dirname(sys.executable)) / "packages",
+            plugin_dir.parent.parent / "core",
+            plugin_dir.parent / "core",
+            app_dir / "packages" / "core",
+            app_dir.parent / "packages" / "core",
             app_dir / "core",
-            app_dir.parent / "core",
         ]
 
         for path in possible_paths:
             if path.exists():
-                sys.path.insert(0, str(path))
-                print(f"[DEBUG] Added path: {path}")
+                path_str = str(path)
+                if path_str not in sys.path:
+                    sys.path.insert(0, path_str)
+                    print(f"[DEBUG] Added path from main: {path}")
                 break
-
-        core_path = app_dir / "packages" / "core"
-        if core_path.exists():
-            sys.path.insert(0, str(core_path))
-            print(f"[DEBUG] Added core: {core_path}")
-
-        satcore_path = app_dir / "packages" / "core" / "satcore"
-        if satcore_path.exists():
-            sys.path.insert(0, str(satcore_path.parent))
-            print(f"[DEBUG] Added satcore parent: {satcore_path.parent}")
 
 
 setup_paths()
