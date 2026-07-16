@@ -271,18 +271,18 @@ class I2cProbe:
     Проверка наличия устройства на шине I2C
     Код команды: 107
     Поля:
-      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 3)
-      - address (uint8) – 7-битный адрес устройства
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4
+      - address (uint16) – 7-битный адрес устройства
     """
-    def __init__(self, i2c_num, address):
-        self.i2c_num = i2c_num
+    def __init__(self, i2c_interface, address):
+        self.i2c_interface = i2c_interface
         self.address = address
 
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
-        result += _pack_value(self.i2c_num, 'uint8')
-        result += _pack_value(self.address, 'uint8')
+        result += _pack_value(self.i2c_interface, 'uint8')
+        result += _pack_value(self.address, 'uint16')
         return result
 
 class I2cReadRegister:
@@ -290,13 +290,13 @@ class I2cReadRegister:
     Чтение данных из регистра устройства I2C
     Код команды: 108
     Поля:
-      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 3)
-      - address (uint8) – 
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4
+      - address (uint16) – 
       - reg (uint8) – Адрес регистра
       - len (uint8) – Количество байт для чтения (макс 8)
     """
-    def __init__(self, i2c_num, address, reg, len):
-        self.i2c_num = i2c_num
+    def __init__(self, i2c_interface, address, reg, len):
+        self.i2c_interface = i2c_interface
         self.address = address
         self.reg = reg
         self.len = len
@@ -304,8 +304,8 @@ class I2cReadRegister:
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
-        result += _pack_value(self.i2c_num, 'uint8')
-        result += _pack_value(self.address, 'uint8')
+        result += _pack_value(self.i2c_interface, 'uint8')
+        result += _pack_value(self.address, 'uint16')
         result += _pack_value(self.reg, 'uint8')
         result += _pack_value(self.len, 'uint8')
         return result
@@ -315,14 +315,14 @@ class I2cWriteRegister:
     Запись данных в регистр I2C
     Код команды: 109
     Поля:
-      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 3)
-      - address (uint8) – 
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4
+      - address (uint16) – 
       - reg (uint8) – 
       - data_len (uint8) – Длина данных (макс 8)
       - data (uint8[8]) – Данные для записи
     """
-    def __init__(self, i2c_num, address, reg, data_len, data):
-        self.i2c_num = i2c_num
+    def __init__(self, i2c_interface, address, reg, data_len, data):
+        self.i2c_interface = i2c_interface
         self.address = address
         self.reg = reg
         self.data_len = data_len
@@ -331,8 +331,8 @@ class I2cWriteRegister:
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
-        result += _pack_value(self.i2c_num, 'uint8')
-        result += _pack_value(self.address, 'uint8')
+        result += _pack_value(self.i2c_interface, 'uint8')
+        result += _pack_value(self.address, 'uint16')
         result += _pack_value(self.reg, 'uint8')
         result += _pack_value(self.data_len, 'uint8')
         # Массив фиксированной длины
@@ -347,13 +347,13 @@ class I2cWrite:
     Отправка данных на устройство I2C без регистра
     Код команды: 110
     Поля:
-      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 3)
-      - address (uint8) – 
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4
+      - address (uint16) – 
       - data_len (uint8) – Длина данных (макс 64)
       - data (uint8[64]) – Данные для отправки
     """
-    def __init__(self, i2c_num, address, data_len, data):
-        self.i2c_num = i2c_num
+    def __init__(self, i2c_interface, address, data_len, data):
+        self.i2c_interface = i2c_interface
         self.address = address
         self.data_len = data_len
         self.data = data
@@ -361,8 +361,8 @@ class I2cWrite:
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
-        result += _pack_value(self.i2c_num, 'uint8')
-        result += _pack_value(self.address, 'uint8')
+        result += _pack_value(self.i2c_interface, 'uint8')
+        result += _pack_value(self.address, 'uint16')
         result += _pack_value(self.data_len, 'uint8')
         # Массив фиксированной длины
         arr_len = 64
@@ -376,20 +376,20 @@ class I2cRead:
     Чтение данных с устройства I2C
     Код команды: 111
     Поля:
-      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 3)
-      - address (uint8) – 
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4
+      - address (uint16) – 
       - len (uint8) – Количество байт для чтения (макс 64)
     """
-    def __init__(self, i2c_num, address, len):
-        self.i2c_num = i2c_num
+    def __init__(self, i2c_interface, address, len):
+        self.i2c_interface = i2c_interface
         self.address = address
         self.len = len
 
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
-        result += _pack_value(self.i2c_num, 'uint8')
-        result += _pack_value(self.address, 'uint8')
+        result += _pack_value(self.i2c_interface, 'uint8')
+        result += _pack_value(self.address, 'uint16')
         result += _pack_value(self.len, 'uint8')
         return result
 
@@ -517,13 +517,11 @@ class InitI2c:
     Инициализация модуля I2C с выбором интерфейса и режима адресации
     Код команды: 120
     Поля:
-      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 3)
-      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 2 - PA8/PB4
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4
       - speed (uint32) – Частота в Гц
       - addressing_mode (uint8) – 0 - 7-битная адресация, 1 - 10-битная
     """
-    def __init__(self, i2c_num, i2c_interface, speed, addressing_mode):
-        self.i2c_num = i2c_num
+    def __init__(self, i2c_interface, speed, addressing_mode):
         self.i2c_interface = i2c_interface
         self.speed = speed
         self.addressing_mode = addressing_mode
@@ -531,7 +529,6 @@ class InitI2c:
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
-        result += _pack_value(self.i2c_num, 'uint8')
         result += _pack_value(self.i2c_interface, 'uint8')
         result += _pack_value(self.speed, 'uint32')
         result += _pack_value(self.addressing_mode, 'uint8')
@@ -542,15 +539,15 @@ class DeinitI2c:
     Деинициализация модуля I2C
     Код команды: 121
     Поля:
-      - i2c_num (uint8) – Номер аппаратного блока I2C (1 или 3)
+      - i2c_interface (uint8) – Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4
     """
-    def __init__(self, i2c_num):
-        self.i2c_num = i2c_num
+    def __init__(self, i2c_interface):
+        self.i2c_interface = i2c_interface
 
     def to_bytes(self) -> bytes:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
-        result += _pack_value(self.i2c_num, 'uint8')
+        result += _pack_value(self.i2c_interface, 'uint8')
         return result
 
 class InitSpi:

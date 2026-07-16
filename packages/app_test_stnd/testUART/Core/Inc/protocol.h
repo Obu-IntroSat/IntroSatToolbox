@@ -142,8 +142,8 @@ typedef struct {
  * Код: 107
  */
 typedef struct {
-    uint8_t i2c_num;
-    uint8_t address;
+    uint8_t i2c_interface;
+    uint16_t address;
 } RequestI2cProbe;
 
 /**
@@ -151,8 +151,8 @@ typedef struct {
  * Код: 108
  */
 typedef struct {
-    uint8_t i2c_num;
-    uint8_t address;
+    uint8_t i2c_interface;
+    uint16_t address;
     uint8_t reg;
     uint8_t len;
 } RequestI2cReadRegister;
@@ -162,8 +162,8 @@ typedef struct {
  * Код: 109
  */
 typedef struct {
-    uint8_t i2c_num;
-    uint8_t address;
+    uint8_t i2c_interface;
+    uint16_t address;
     uint8_t reg;
     uint8_t data_len;
     uint8_t data[8];
@@ -174,8 +174,8 @@ typedef struct {
  * Код: 110
  */
 typedef struct {
-    uint8_t i2c_num;
-    uint8_t address;
+    uint8_t i2c_interface;
+    uint16_t address;
     uint8_t data_len;
     uint8_t data[64];
 } RequestI2cWrite;
@@ -185,8 +185,8 @@ typedef struct {
  * Код: 111
  */
 typedef struct {
-    uint8_t i2c_num;
-    uint8_t address;
+    uint8_t i2c_interface;
+    uint16_t address;
     uint8_t len;
 } RequestI2cRead;
 
@@ -244,7 +244,6 @@ typedef struct {
  * Код: 120
  */
 typedef struct {
-    uint8_t i2c_num;
     uint8_t i2c_interface;
     uint32_t speed;
     uint8_t addressing_mode;
@@ -255,7 +254,7 @@ typedef struct {
  * Код: 121
  */
 typedef struct {
-    uint8_t i2c_num;
+    uint8_t i2c_interface;
 } RequestDeinitI2c;
 
 /**
