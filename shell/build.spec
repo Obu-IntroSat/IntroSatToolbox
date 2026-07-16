@@ -48,8 +48,19 @@ except Exception as e:
     print(f"[build.spec] Warning: Could not add satcore: {e}")
 
 spec_dir = Path(os.getcwd())
+packages_dir = spec_dir.parent / "packages"
+
 for pkg in APP_PACKAGES:
-    egg_info_path = spec_dir.parent / "packages" / pkg / f"{pkg}.egg-info"
+    pkg_dir = packages_dir / pkg / pkg
+    if pkg_dir.exists():
+        for file in pkg_dir.rglob('*.py'):
+            datas.append((str(file), f"{pkg}"))
+            print(f"[build.spec] Added app file: {file}")
+    else:
+        print(f"[build.spec] Warning: app package not found at {pkg_dir}")
+
+for pkg in APP_PACKAGES:
+    egg_info_path = packages_dir / pkg / f"{pkg}.egg-info"
     if egg_info_path.exists():
         for file in egg_info_path.rglob('*'):
             if file.is_file():
