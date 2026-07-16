@@ -9,29 +9,52 @@ from pathlib import Path
 block_cipher = None
 
 # Apps to bundle into the combined executable.
-APP_DISTRIBUTIONS = ["app-comms", "app-firmware", "app-template"]
-APP_PACKAGES = ["app_comms", "app_firmware", "app_template"]
+APP_DISTRIBUTIONS = [
+    "app-comms",
+    "app-firmware",
+    "app-template",
+    "app-firmware-gitrepo",
+]
+APP_PACKAGES = [
+    "app_comms",
+    "app_firmware",
+    "app_template",
+    "app_firmware_gitrepo",
+]
 
 datas = []
 hiddenimports = []
+
 for dist in APP_DISTRIBUTIONS:
     datas += copy_metadata(dist)
+    print(f"[build.spec] Added metadata for: {dist}")
+
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
+    print(f"[build.spec] Added submodules for: {pkg}")
 
-# === ADD SATCORE ===
 hiddenimports += collect_submodules('satcore')
+print("[build.spec] Added satcore submodules")
 
-# Add satcore source files to datas
 try:
     import satcore
     satcore_path = Path(satcore.__file__).parent
     if satcore_path.exists():
         for file in satcore_path.rglob('*.py'):
             datas.append((str(file), "satcore"))
-        print("[build.spec] Added satcore to datas")
+        print("[build.spec] Added satcore files to datas")
 except Exception as e:
     print(f"[build.spec] Warning: Could not add satcore: {e}")
+
+for pkg in APP_PACKAGES:
+    egg_info_path = Path(__file__).parent.parent / "packages" / pkg / f"{pkg}.egg-info"
+    if egg_info_path.exists():
+        for file in egg_info_path.rglob('*'):
+            if file.is_file():
+                datas.append((str(file), f"{pkg}.egg-info"))
+                print(f"[build.spec] Added egg-info: {file}")
+    else:
+        print(f"[build.spec] Warning: egg-info not found for {pkg}")
 
 a = Analysis(
     ["shell/main.py"],
@@ -53,5 +76,5 @@ exe = EXE(
     a.datas,
     [],
     name="IntroSatToolbox",
-    console=False,
+    console=True,
 )
