@@ -37,7 +37,7 @@ class TemplateWidget(QWidget):
         port_layout.setSpacing(15)
 
         label_port = QLabel("Порт:")
-        label_port.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
+        label_port.setStyleSheet("font-weight: bold; font-size: 14px; color: white; background: transparent;")
         port_layout.addWidget(label_port)
 
         self.port_box = QComboBox()
@@ -46,7 +46,7 @@ class TemplateWidget(QWidget):
         port_layout.addWidget(self.port_box)
 
         label_baud = QLabel("Скорость:")
-        label_baud.setStyleSheet("font-weight: bold; font-size: 14px; color: white;")
+        label_baud.setStyleSheet("font-weight: bold; font-size: 14px; color: white; background: transparent;")
         port_layout.addWidget(label_baud)
 
         self.baud_box = QComboBox()
@@ -93,7 +93,7 @@ class TemplateWidget(QWidget):
         conn_layout.setSpacing(15)
 
         label_conn = QLabel("Проверка подключения")
-        label_conn.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px; color: white;")
+        label_conn.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px; color: white; background: transparent;")
         conn_layout.addWidget(label_conn)
 
         self.connection_combo = QComboBox()
@@ -115,7 +115,7 @@ class TemplateWidget(QWidget):
         test_layout.setSpacing(15)
 
         label_test = QLabel("Тестирование")
-        label_test.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px; color: white;")
+        label_test.setStyleSheet("font-weight: bold; font-size: 14px; min-width: 180px; color: white; background: transparent;")
         test_layout.addWidget(label_test)
 
         self.test_combo = QComboBox()
@@ -149,6 +149,11 @@ class TemplateWidget(QWidget):
                 border-radius: 12px;
                 padding: 10px;
             }
+            QLabel {
+                background: transparent;
+                color: white;
+                font-size: 12px;
+            }
         """)
         right_layout = QVBoxLayout(right_container)
         right_layout.setSpacing(10)
@@ -174,15 +179,15 @@ class TemplateWidget(QWidget):
 
         # Информация о подключении
         self.port_info_label = QLabel("Открыт порт: ")
-        self.port_info_label.setStyleSheet("color: white; font-size: 12px;")
+        self.port_info_label.setStyleSheet("color: white; font-size: 12px; background: transparent; padding: 4px 0;")
         right_layout.addWidget(self.port_info_label)
 
         self.stand_info_label = QLabel("Данные о стенде: ")
-        self.stand_info_label.setStyleSheet("color: white; font-size: 12px;")
+        self.stand_info_label.setStyleSheet("color: white; font-size: 12px; background: transparent; padding: 4px 0;")
         right_layout.addWidget(self.stand_info_label)
 
         self.fixture_info_label = QLabel("Данные об оснастке: ")
-        self.fixture_info_label.setStyleSheet("color: white; font-size: 12px;")
+        self.fixture_info_label.setStyleSheet("color: white; font-size: 12px; background: transparent; padding: 4px 0;")
         right_layout.addWidget(self.fixture_info_label)
 
         right_layout.addStretch()
@@ -211,7 +216,7 @@ class TemplateWidget(QWidget):
         output_layout.setContentsMargins(0, 10, 0, 0)
 
         output_label = QLabel("Результаты тестирования:")
-        output_label.setStyleSheet("color: #75f5ea; font-weight: bold; font-size: 14px;")
+        output_label.setStyleSheet("color: #75f5ea; font-weight: bold; font-size: 14px; background: transparent;")
         output_layout.addWidget(output_label)
 
         self.output_text = QTextEdit()
@@ -282,14 +287,6 @@ class TemplateWidget(QWidget):
         self.output_text.append("Подключение к стенду...")
         self.output_text.append("")
 
-        # #СДЕЛАТЬ НОРМАЛЬНОЕ ПОДКЛЮЧЕНИЕ
-        # Здесь должна быть логика:
-        # 1. Открыть порт (controller.connect())
-        # 2. Запросить версию прошивки (GetVersion)
-        # 3. Запросить версию стенда (GetStatus или другая команда)
-        # 4. Запросить данные об оснастке
-        # 5. Обновить информационные метки справа
-
         # Шаг 1: Подключение к порту
         if not controller.connect():
             self.output_text.append("Ошибка: Не удалось открыть порт!")
@@ -311,9 +308,7 @@ class TemplateWidget(QWidget):
             self.stand_info_label.setText("Данные о стенде: Ошибка получения")
             self.output_text.append("Ошибка получения версии прошивки")
 
-        # Шаг 3: Запрос данных об оснастке (пока заглушка)
-        # TODO: Реальная проверка оснастки
-        # Пока просто проверяем наличие устройства по I2C адресу 0x1E (LIS2MDL)
+        # Шаг 3: Запрос данных об оснастке
         result = controller.execute_command("I2cProbe", {"address": 0x1E})
         if result['success'] and result['response_code'] == 207:
             present = result['response_data'].get('present', False)
@@ -337,10 +332,6 @@ class TemplateWidget(QWidget):
         else:
             self.output_text.append("")
             self.output_text.append("Подключение выполнено с ошибками!")
-
-        # Отключаемся
-        # controller.disconnect()
-        # self.output_text.append(" Порт закрыт")
 
     # === ОБРАБОТЧИКИ СОБЫТИЙ ===
 
