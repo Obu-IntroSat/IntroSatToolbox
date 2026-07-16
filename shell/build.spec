@@ -32,8 +32,19 @@ for dist in APP_DISTRIBUTIONS:
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
-# === ADD ST-Link BINARIES ===
-# Search for binaries in multiple locations
+hiddenimports += collect_submodules('satcore')
+
+try:
+    import satcore
+    satcore_path = Path(satcore.__file__).parent
+    if satcore_path.exists():
+        for file in satcore_path.rglob('*.py'):
+            rel_path = file.relative_to(satcore_path.parent.parent)
+            datas.append((str(file), str(rel_path.parent)))
+            print(f"[build.spec] Added satcore file: {rel_path}")
+except Exception as e:
+    print(f"[build.spec] Warning: Could not add satcore: {e}")
+
 possible_paths = [
     Path(os.getcwd()).parent / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
     Path(os.getcwd()) / "packages" / "app_firmware_gitrepo" / "app_firmware_gitrepo" / "bin",
