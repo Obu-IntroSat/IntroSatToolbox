@@ -1,4 +1,4 @@
-"""Camera VIBE2K26SUMMER application."""
+"""Camera application for Introsat."""
 
 __version__ = "0.1.0"
 

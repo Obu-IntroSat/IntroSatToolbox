@@ -7,7 +7,7 @@ from .ui.main_window import CameraWidget
 
 class CameraPlugin(AppPlugin):
     id = "camera_vibe2k26summer"
-    title = "📷 CAMERA VIBE2K26SUMMER"
+    title = "📷 CAMERA INTROSAT"
     order = 30
 
     def create_widget(self, parent: QWidget | None = None) -> QWidget:

@@ -8,7 +8,7 @@ from .ui.main_window import CameraWidget
 def main() -> int:
     app = QApplication(sys.argv)
     win = CameraWidget()
-    win.setWindowTitle("📷 CAMERA VIBE2K26SUMMER")
+    win.setWindowTitle("📷 CAMERA INTROSAT")
     win.setMinimumSize(700, 600)
     win.show()
     return app.exec()

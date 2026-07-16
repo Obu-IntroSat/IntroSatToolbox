@@ -8,12 +8,13 @@ from typing import Optional
 import serial
 
 from PySide6.QtCore import QThread, Signal
-from PIL import Image
+
+from .config import CameraCommandConfig
 
 
 class CameraWorker(QThread):
     progress = Signal(int)
-    partial_image = Signal(bytes, int, int)   # итоговое изображение (обрезанное/масштабированное)
+    partial_image = Signal(bytes, int, int)   # всегда обрезанные данные, размер = crop_w, crop_h
     log = Signal(str)
     finished = Signal()
     error = Signal(str)
@@ -35,20 +36,10 @@ class CameraWorker(QThread):
         self._chunk_struct = struct.Struct(config.chunk_format)
         self._prop_struct = struct.Struct(config.property_format)
 
-        # Реальный размер камеры (обновляется только из свойств)
-        self._real_width = 640
-        self._real_height = 480
-
-        # Параметры обрезки (в координатах реального кадра)
         self._crop_v_start = 0
         self._crop_h_start = 0
         self._crop_width = 640
         self._crop_height = 480
-
-        # Целевой размер для отображения (масштабирование)
-        self._target_width = 640
-        self._target_height = 480
-
         self._exposure = 0
         self._firmware_version = ""
 
@@ -66,89 +57,14 @@ class CameraWorker(QThread):
         self.log.emit(f"✂️ Параметры обрезки: vStart={v_start}, hStart={h_start}, {width}×{height}")
 
     def set_resolution(self, width: int, height: int):
-        """
-        Отправляет команду изменения размера камеры и дожидается подтверждения.
-        После успеха обновляет _real_width и _real_height.
-        """
         if not self.ser or not self.ser.is_open:
             self.log.emit("⚠️ Порт не открыт")
             return
-
         cmd = self.config.get_command_bytes(self.config.set_size)
         cmd += struct.pack('<HH', width, height)
         self._write(cmd)
-        self.log.emit(f"📐 Отправлена команда изменения размера: {width}×{height}")
-
-        # Длительное подтверждение (до 3 секунд)
-        confirmed = False
-        for attempt in range(30):  # 30 попыток по 0.1 сек = 3 сек
-            time.sleep(0.1)
-            props = self._fetch_properties()
-            if props:
-                cam_w = props.get('width', 0)
-                cam_h = props.get('height', 0)
-                if cam_w == width and cam_h == height:
-                    self._real_width = width
-                    self._real_height = height
-                    self.log.emit(f"✅ Размер подтверждён камерой: {width}×{height}")
-                    confirmed = True
-                    break
-                else:
-                    self.log.emit(f"⚠️ Попытка {attempt+1}: камера вернула {cam_w}×{cam_h}, ждём...")
-            else:
-                self.log.emit(f"⚠️ Попытка {attempt+1}: не удалось получить свойства")
-
-        if not confirmed:
-            # Если не подтвердился, пытаемся получить текущий размер
-            props = self._fetch_properties()
-            if props and props.get('width', 0) > 0 and props.get('height', 0) > 0:
-                self._real_width = props['width']
-                self._real_height = props['height']
-                self.log.emit(f"⚠️ Камера не подтвердила новый размер, используется текущий: {self._real_width}×{self._real_height}")
-            else:
-                self.log.emit(f"⚠️ Не удалось определить размер, оставляем {self._real_width}×{self._real_height}")
-
-        # Корректируем параметры обрезки, чтобы не выходить за реальные размеры
-        if self._crop_width > self._real_width:
-            self._crop_width = self._real_width
-        if self._crop_height > self._real_height:
-            self._crop_height = self._real_height
-
-        # Дополнительная пауза для стабилизации камеры
-        time.sleep(0.5)
-
-    def _fetch_properties(self) -> Optional[dict]:
-        """Запрашивает свойства и возвращает словарь, или None при ошибке"""
-        if not self.ser or not self.ser.is_open:
-            return None
-        try:
-            self.ser.reset_input_buffer()
-            self.ser.reset_output_buffer()
-            self._write_command(self.config.properties)
-            preamble = bytes.fromhex(self.config.preamble)
-            response = b''
-            start = time.time()
-            while (time.time() - start) < 2.0 and not self._stop_event.is_set():
-                if self.ser.in_waiting > 0:
-                    data = self.ser.read(self.ser.in_waiting)
-                    response += data
-                    if len(response) >= self.config.property_size + 3:
-                        break
-                time.sleep(0.01)
-            if not response:
-                return None
-            idx = response.find(preamble)
-            if idx == -1:
-                return None
-            prop_data = response[idx + len(preamble):]
-            if len(prop_data) < self.config.property_size:
-                extra = self._read_with_timeout(self.config.property_size - len(prop_data), timeout=0.5)
-                prop_data += extra
-            if len(prop_data) < self.config.property_size:
-                return None
-            return self._parse_properties(prop_data[:self.config.property_size])
-        except Exception:
-            return None
+        time.sleep(0.05)
+        self.log.emit(f"📐 Установлен размер: {width}×{height}")
 
     def connect(self, port: str) -> bool:
         try:
@@ -162,11 +78,6 @@ class CameraWorker(QThread):
             self.ser.reset_output_buffer()
             self.log.emit(f"✅ Подключено к {port} ({self.config.baudrate} бод)")
             self.log.emit(f"   Профиль: {self.config.name}")
-            props = self._fetch_properties()
-            if props:
-                self._real_width = props.get('width', 640)
-                self._real_height = props.get('height', 480)
-                self.log.emit(f"   Реальный размер камеры: {self._real_width}×{self._real_height}")
             return True
         except Exception as e:
             self.log.emit(f"❌ {e}")
@@ -200,6 +111,7 @@ class CameraWorker(QThread):
                 to_read = min(available, size - len(data))
                 chunk = self.ser.read(to_read)
                 data += chunk
+                self.log.emit(f"   Прочитано {len(chunk)} байт (всего {len(data)}/{size})")
             time.sleep(0.01)
         return data
 
@@ -244,7 +156,6 @@ class CameraWorker(QThread):
 
     def _apply_crop(self, data: bytes, width: int, height: int,
                     crop_x: int, crop_y: int, crop_w: int, crop_h: int) -> bytes:
-        """Обрезает изображение до заданной области (crop_x, crop_y, crop_w, crop_h)"""
         if crop_x == 0 and crop_y == 0 and crop_w == width and crop_h == height:
             return data
         result = bytearray()
@@ -255,17 +166,6 @@ class CameraWorker(QThread):
             if start < len(data):
                 result.extend(data[start:end])
         return bytes(result)
-
-    def _resize_image(self, data: bytes, src_w: int, src_h: int, dst_w: int, dst_h: int) -> bytes:
-        if src_w == dst_w and src_h == dst_h:
-            return data
-        try:
-            img = Image.frombytes("L", (src_w, src_h), data)
-            img = img.resize((dst_w, dst_h), Image.Resampling.LANCZOS)
-            return img.tobytes()
-        except Exception as e:
-            self.log.emit(f"⚠️ Ошибка масштабирования: {e}")
-            return data
 
     def get_version(self) -> str:
         if not self.ser or not self.ser.is_open:
@@ -337,25 +237,14 @@ class CameraWorker(QThread):
         self.capture_in_progress = True
         try:
             self.log.emit(f"📸 Захват... (экспозиция={self._exposure})")
-
-            # Обновим реальные размеры перед захватом (на всякий случай)
-            props = self._fetch_properties()
-            if props and props.get('width', 0) > 0 and props.get('height', 0) > 0:
-                self._real_width = props['width']
-                self._real_height = props['height']
-                self.log.emit(f"   Актуальный размер перед захватом: {self._real_width}×{self._real_height}")
-
             if self._exposure > 0:
                 cmd = self.config.get_command_bytes(self.config.set_exposure)
                 cmd += struct.pack('<H', self._exposure)
                 self._write(cmd)
                 time.sleep(0.05)
-
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
-            time.sleep(0.3)  # увеличенная пауза перед захватом
             self._write_command(self.config.capture)
-
             start_time = time.time()
             response_found = False
             timeout = self.config.timeout_capture
@@ -390,11 +279,40 @@ class CameraWorker(QThread):
         self.is_busy = True
         try:
             self.log.emit("📊 Запрос свойств...")
-            props = self._fetch_properties()
-            if props is None:
-                self.log.emit("⚠️ Не удалось получить свойства")
-                self.error.emit("Не удалось получить свойства")
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+            self._write_command(self.config.properties)
+            preamble = bytes.fromhex(self.config.preamble)
+            response = b''
+            start_time = time.time()
+            while (time.time() - start_time) < 3.0 and not self._stop_event.is_set():
+                if self.ser.in_waiting > 0:
+                    data = self.ser.read(self.ser.in_waiting)
+                    response += data
+                    self.log.emit(f"   Получено {len(data)} байт (всего {len(response)})")
+                    if len(response) >= self.config.property_size + 3:
+                        break
+                time.sleep(0.01)
+            if not response:
+                self.log.emit("⚠️ Нет ответа")
+                self.error.emit("Нет ответа от камеры")
                 return
+            preamble_idx = response.find(preamble)
+            if preamble_idx == -1:
+                self.log.emit("⚠️ Преамбула не найдена")
+                self.error.emit("Преамбула не найдена")
+                return
+            prop_data = response[preamble_idx + len(preamble):]
+            self.log.emit(f"   Данные свойств ({len(prop_data)} байт): {prop_data.hex()}")
+            if len(prop_data) < self.config.property_size:
+                self.log.emit(f"⚠️ Получено {len(prop_data)} байт свойств, ожидается {self.config.property_size}")
+                extra = self._read_with_timeout(self.config.property_size - len(prop_data), timeout=1.0)
+                prop_data += extra
+                self.log.emit(f"   После дозагрузки: {len(prop_data)} байт")
+            if len(prop_data) < self.config.property_size:
+                self.error.emit(f"Неполные данные свойств: {len(prop_data)}/{self.config.property_size}")
+                return
+            props = self._parse_properties(prop_data[:self.config.property_size])
             self.properties_received.emit(props)
             if props.get('chunks', 0) > 0:
                 self.log.emit(f"✅ Размер: {props.get('width', 0)}x{props.get('height', 0)}, чанков: {props.get('chunks', 0)}")
@@ -413,58 +331,75 @@ class CameraWorker(QThread):
         try:
             self.log.emit("📥 Начинаем загрузку...")
 
-            # Шаг 1: Получение свойств (реальный размер)
+            # Шаг 1: Свойства
             self.log.emit("📊 Шаг 1: Получение свойств...")
-            props = self._fetch_properties()
-            if props is None:
-                self.log.emit("⚠️ Не удалось получить свойства")
-                self.error.emit("Не удалось получить свойства")
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+            self._write_command(self.config.properties)
+            preamble = bytes.fromhex(self.config.preamble)
+            response = b''
+            start_time = time.time()
+            while (time.time() - start_time) < 3.0 and not self._stop_event.is_set():
+                if self.ser.in_waiting > 0:
+                    data = self.ser.read(self.ser.in_waiting)
+                    response += data
+                    if len(response) >= self.config.property_size + 3:
+                        break
+                time.sleep(0.01)
+            if not response:
+                self.log.emit("⚠️ Нет ответа от камеры")
+                self.error.emit("Нет ответа от камеры")
                 return
-
-            real_width = props.get('width', 0)
-            real_height = props.get('height', 0)
+            preamble_idx = response.find(preamble)
+            if preamble_idx == -1:
+                self.log.emit("⚠️ Преамбула не найдена")
+                self.error.emit("Преамбула не найдена")
+                return
+            prop_data = response[preamble_idx + len(preamble):]
+            if len(prop_data) < self.config.property_size:
+                extra = self._read_with_timeout(self.config.property_size - len(prop_data), timeout=1.0)
+                prop_data += extra
+            if len(prop_data) < self.config.property_size:
+                self.error.emit(f"Неполные данные свойств: {len(prop_data)}/{self.config.property_size}")
+                return
+            props = self._parse_properties(prop_data[:self.config.property_size])
+            width = props.get('width', 0)
+            height = props.get('height', 0)
             total_chunks = props.get('chunks', 0)
-
-            if real_width == 0 or real_height == 0:
-                self.log.emit("⚠️ Камера вернула нулевые размеры, используем 640×480")
-                real_width = 640
-                real_height = 480
-            self._real_width = real_width
-            self._real_height = real_height
-
-            self.log.emit(f"📊 Реальный размер камеры: {real_width}×{real_height}, чанков: {total_chunks}")
+            if width == 0 or height == 0:
+                self.log.emit("⚠️ Камера вернула нулевые размеры, используем 640x480")
+                width = 640
+                height = 480
+            self.log.emit(f"📊 Свойства: ширина={width}, высота={height}, чанков={total_chunks}")
             if total_chunks == 0:
                 self.log.emit("ℹ️ Нет снимка в памяти")
                 self.error.emit("Нет снимка в памяти")
                 return
 
-            # Параметры обрезки (пользовательские), корректируем
+            # Параметры обрезки
             crop_x = self._crop_h_start
             crop_y = self._crop_v_start
             crop_w = self._crop_width
             crop_h = self._crop_height
-
-            if crop_x + crop_w > real_width:
-                crop_w = real_width - crop_x
-            if crop_y + crop_h > real_height:
-                crop_h = real_height - crop_y
+            if crop_x + crop_w > width:
+                crop_w = width - crop_x
+            if crop_y + crop_h > height:
+                crop_h = height - crop_y
             if crop_w <= 0 or crop_h <= 0:
-                crop_w = real_width
-                crop_h = real_height
+                crop_w = width
+                crop_h = height
                 crop_x = 0
                 crop_y = 0
-
-            self.log.emit(f"📦 Обрезка: ({crop_x},{crop_y}) {crop_w}×{crop_h}")
+            self.log.emit(f"📦 Исходный размер: {width}×{height}, обрезка: ({crop_x},{crop_y}) {crop_w}×{crop_h}")
 
             # Шаг 2: Загрузка чанков
             self.log.emit("📥 Шаг 2: Загрузка чанков...")
             full_image = bytearray()
-            expected = real_width * real_height
+            expected = width * height
             self.ser.reset_input_buffer()
             chunk_struct = self._chunk_struct
             chunk_buffer = self._chunk_buffer
             packet_size = self.config.chunk_packet_size
-            preamble = bytes.fromhex(self.config.preamble)
             bytes_received = 0
             last_progress = -1
 
@@ -507,20 +442,27 @@ class CameraWorker(QThread):
                     payload = chunk_buffer[5:5+payload_len]
                     full_image.extend(payload)
                     bytes_received += payload_len
-                    progress = int(min(100, (bytes_received / expected) * 100)) if expected > 0 else 0
+                    if expected > 0:
+                        progress = int(min(100, (bytes_received / expected) * 100))
+                    else:
+                        progress = int((chunk_idx + 1) / total_chunks * 100)
                     if progress != last_progress:
                         self.progress.emit(progress)
                         last_progress = progress
                     self.log.emit(f"   Чанк {chunk_idx+1}: id={chunk_id}, payload={payload_len}, last={is_last}, прогресс={progress}%")
 
-                    # Промежуточное изображение (обрезанное) каждые 5 чанков
+                    # Отправляем промежуточное изображение (обрезанное) только для не-последних чанков
                     if not is_last and progress < 100 and (chunk_idx % 5 == 0):
+                        # Дополняем до полного размера
                         if len(full_image) < expected:
                             padded = full_image + b'\x00' * (expected - len(full_image))
                         else:
                             padded = full_image[:expected]
-                        cropped_partial = self._apply_crop(bytes(padded), real_width, real_height,
-                                                           crop_x, crop_y, crop_w, crop_h)
+                        # Обрезаем
+                        cropped_partial = self._apply_crop(bytes(padded), width, height, crop_x, crop_y, crop_w, crop_h)
+                        # Дополняем до размера обрезанной области
+                        if len(cropped_partial) < crop_w * crop_h:
+                            cropped_partial += b'\x00' * (crop_w * crop_h - len(cropped_partial))
                         self.partial_image.emit(cropped_partial, crop_w, crop_h)
 
                     if is_last:
@@ -533,27 +475,18 @@ class CameraWorker(QThread):
                     self.log.emit(f"   Достигнут ожидаемый размер")
                     break
 
-            # Шаг 3: Проверка и дополнение
+            # Шаг 3: Проверка и дополнение нулями
             self.log.emit(f"📊 Получено {len(full_image)} байт из {expected} ожидаемых")
             if len(full_image) < expected:
                 self.log.emit(f"⚠️ Недостаточно данных: {len(full_image)}/{expected}, дополняем нулями")
                 full_image.extend(b'\x00' * (expected - len(full_image)))
 
-            # Шаг 4: Финальное изображение – обрезка (и масштабирование, если нужно)
-            cropped_data = self._apply_crop(bytes(full_image), real_width, real_height,
-                                            crop_x, crop_y, crop_w, crop_h)
-
-            if self._target_width != crop_w or self._target_height != crop_h:
-                final_data = self._resize_image(cropped_data, crop_w, crop_h,
-                                                self._target_width, self._target_height)
-                final_w, final_h = self._target_width, self._target_height
-                self.log.emit(f"✅ Загрузка завершена: обрезка {crop_w}×{crop_h} → масштаб {final_w}×{final_h}")
-            else:
-                final_data = cropped_data
-                final_w, final_h = crop_w, crop_h
-                self.log.emit(f"✅ Загрузка завершена: обрезка {crop_w}×{crop_h}")
-
-            self.partial_image.emit(final_data, final_w, final_h)
+            # Шаг 4: Финальное обрезанное изображение (отправляем всегда)
+            cropped_data = self._apply_crop(bytes(full_image), width, height, crop_x, crop_y, crop_w, crop_h)
+            if len(cropped_data) < crop_w * crop_h:
+                cropped_data += b'\x00' * (crop_w * crop_h - len(cropped_data))
+            self.log.emit(f"✅ Загрузка завершена: {len(cropped_data)} байт (обрезка {crop_w}×{crop_h})")
+            self.partial_image.emit(cropped_data, crop_w, crop_h)
             self.progress.emit(100)
 
         except Exception as e:

@@ -1,20 +1,22 @@
-# PyInstaller spec to build ONLY the template app.
-# Build with:  pyinstaller packages/app_template/build.spec
+# PyInstaller spec for the cam_introsat application.
+# Build with:  pyinstaller build.spec
+
 from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
 a = Analysis(
-    ["app_template/__main__.py"],
+    ["cam_introsat/__main__.py"],          # путь к точке входа
     pathex=[],
     binaries=[],
-    datas=[],
-    hiddenimports=collect_submodules("app_template"),
+    datas=[],                              # можно добавить данные, например ('cam_introsat/configs/*', 'configs')
+    hiddenimports=collect_submodules("cam_introsat"),  # собираем все подмодули
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
     cipher=block_cipher,
 )
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
@@ -23,6 +25,6 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name="app-template",
-    console=False,
+    name="cam-introsat",                   # имя исполняемого файла (без .exe на Windows)
+    console=False,                         # если нужна консоль – поставьте True
 )
