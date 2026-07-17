@@ -392,7 +392,7 @@ class TemplateWidget(QWidget):
         elif "CC1101" in test_name:
             result = execute_spi_test(controller)
         elif "UART тест" in test_name:
-            result = execute_uart_test(controller, "../scenarios/test_uart.yaml")
+            result = execute_uart_test(controller)
         else:  # FCT - Полное тестирование
             result = self.run_full_test()
 
