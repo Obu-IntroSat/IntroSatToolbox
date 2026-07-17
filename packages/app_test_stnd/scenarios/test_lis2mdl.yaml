@@ -2,29 +2,30 @@ name: "Тестирование LIS2MDL (I2C)"
 description: |
   Проверка работоспособности магнитометра LIS2MDL.
   Шаги:
-  1. Инициализация I2C
+  1. Инициализация I2C (интерфейс 1, частота 100 кГц, 7-бит)
   2. Проверка наличия устройства по адресу 0x1E
-  3. Чтение WHO_AM_I (ожидается 0x40)
+  3. Чтение WHO_AM_I (0x4F) – ожидается 0x40
   4. Чтение 6 байт данных магнитометра
   5. Деинициализация I2C
 
 steps:
-  - description: "Инициализация I2C1 (частота 100 кГц)"
+  - description: "Инициализация I2C1 (интерфейс 1, частота 100 кГц, 7-бит)"
     command: InitI2c
     params:
-      i2c_num: 1
-      scl_pin: 6   # PB6
-      sda_pin: 7   # PB7
+      i2c_interface: 1
       speed: 100000
+      addressing_mode: 0
 
   - description: "Проверка наличия устройства LIS2MDL по адресу 0x1E"
     command: I2cProbe
     params:
+      i2c_interface: 1
       address: 0x1E
 
   - description: "Чтение регистра WHO_AM_I (0x4F) – ожидается 0x40"
     command: I2cReadRegister
     params:
+      i2c_interface: 1
       address: 0x1E
       reg: 0x4F
       len: 1
@@ -32,10 +33,11 @@ steps:
   - description: "Чтение 6 байт выходных данных (OUT_X_L, OUT_X_H, OUT_Y_L, OUT_Y_H, OUT_Z_L, OUT_Z_H)"
     command: I2cRead
     params:
+      i2c_interface: 1
       address: 0x1E
       len: 6
 
   - description: "Деинициализация I2C1"
     command: DeinitI2c
     params:
-      i2c_num: 1
+      i2c_interface: 1

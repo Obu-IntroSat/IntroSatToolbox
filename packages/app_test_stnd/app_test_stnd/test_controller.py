@@ -56,7 +56,7 @@ class TestController:
         packet = bytes([0xAA, cmd_code, length]) + data_bytes + bytes([crc])
         self.ser.write(packet)
 
-    def read_packet(self, timeout: float = 3.0) -> tuple[int, bytes]:
+    def read_packet(self, timeout: float = 5.0) -> tuple[int, bytes]:
         """
         Читает пакет, проверяет стартовый байт и CRC.
         Таймаут увеличен до 3 секунд для надёжности.
@@ -105,7 +105,7 @@ class TestController:
 
         raise TimeoutError("Ответ не получен")
 
-    def execute_command(self, cmd_name: str, params: dict, timeout: float = 3.0) -> dict:
+    def execute_command(self, cmd_name: str, params: dict, timeout: float = 5.0) -> dict:
         """
         Выполняет команду и возвращает результат.
 

@@ -2,29 +2,30 @@ name: "Тестирование LSM6DS3 (I2C)"
 description: |
   Проверка работоспособности акселерометра/гироскопа LSM6DS3.
   Шаги:
-  1. Инициализация I2C
+  1. Инициализация I2C (интерфейс 1, частота 100 кГц, 7-бит)
   2. Проверка наличия устройства по адресу 0x6A
-  3. Чтение WHO_AM_I (регистр 0x0F) – ожидается 0x69
-  4. Чтение 6 байт данных акселерометра (регистры 0x28–0x2D)
+  3. Чтение WHO_AM_I (0x0F) – ожидается 0x69
+  4. Чтение 6 байт данных акселерометра
   5. Деинициализация I2C
 
 steps:
-  - description: "Инициализация I2C1 (частота 100 кГц)"
+  - description: "Инициализация I2C1 (интерфейс 1, частота 100 кГц, 7-бит)"
     command: InitI2c
     params:
-      i2c_num: 1
-      scl_pin: 6   # PB6
-      sda_pin: 7   # PB7
+      i2c_interface: 1
       speed: 100000
+      addressing_mode: 0
 
   - description: "Проверка наличия устройства LSM6DS3 по адресу 0x6A"
     command: I2cProbe
     params:
+      i2c_interface: 1
       address: 0x6A
 
   - description: "Чтение WHO_AM_I (0x0F) – ожидается 0x69"
     command: I2cReadRegister
     params:
+      i2c_interface: 1
       address: 0x6A
       reg: 0x0F
       len: 1
@@ -32,10 +33,11 @@ steps:
   - description: "Чтение 6 байт данных акселерометра (OUTX_L_XL = 0x28, OUTX_H_XL = 0x29, ... OUTZ_H_XL = 0x2D)"
     command: I2cRead
     params:
+      i2c_interface: 1
       address: 0x6A
       len: 6
 
   - description: "Деинициализация I2C1"
     command: DeinitI2c
     params:
-      i2c_num: 1
+      i2c_interface: 1
