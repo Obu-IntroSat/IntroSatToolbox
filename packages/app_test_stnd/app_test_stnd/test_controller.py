@@ -319,7 +319,7 @@ def execute_uart_test(controller: TestController) -> str:
     # Шаг 1: Инициализация UART2
     lines.append("Шаг 1: Инициализация UART2 (9600, 8N1)")
     result = controller.execute_command("InitUart", {
-        "uart_num": 1,
+        "uart_num": 2,
         "baudrate": 9600,
         "parity": 0,
         "stop_bits": 1,
@@ -337,7 +337,7 @@ def execute_uart_test(controller: TestController) -> str:
     data_bytes = [0x48, 0x65, 0x6C, 0x6C, 0x6F]
     data_64 = data_bytes + [0] * (64 - len(data_bytes))
     result = controller.execute_command("UartSend", {
-        "uart_num": 1,
+        "uart_num": 2,
         "data_len": len(data_bytes),
         "data": data_64
     }, timeout=5.0)
@@ -351,7 +351,7 @@ def execute_uart_test(controller: TestController) -> str:
     # Шаг 3: Попытка приёма (опционально)
     lines.append("Шаг 3: Попытка приёма данных (эхо, таймаут 1000 мс, максимум 10 байт)")
     result = controller.execute_command("UartReceive", {
-        "uart_num": 1,
+        "uart_num": 2,
         "timeout_ms": 1000,
         "max_len": 10
     }, timeout=5.0)
