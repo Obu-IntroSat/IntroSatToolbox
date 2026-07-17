@@ -305,80 +305,87 @@ def execute_gpio_test(controller: TestController) -> str:
 
 
 def execute_uart_test(controller: TestController) -> str:
-    """Тестирование UART2: инициализация, отправка, приём (эхо), деинициализация."""
+    """Тестирование UART2 (эхо) – требует настройки пинов в прошивке."""
     lines = []
     lines.append("=== UART2 тест (эхо) ===")
     lines.append("")
-    lines.append("Для успешного теста замкните выводы TX и RX UART2 на плате перемычкой.")
+    lines.append("⚠️ Внимание: для работы теста необходимо:")
+    lines.append("  1. Замкнуть перемычкой выводы TX и RX UART2 на плате (PA2 и PA3).")
+    lines.append("  2. В прошивке должны быть настроены пины UART2 в HAL_UART_MspInit.")
+    lines.append("  3. Если пины не настроены, тест завершится с ошибкой.")
     lines.append("")
 
     if not controller.connect():
         return "Ошибка: Не удалось подключиться к стенду"
 
-    # Шаг 1: Инициализация UART2 (9600, 8N1)
-    lines.append("Шаг 1: Инициализация UART2 (9600, 8 бит, 1 стоп, без чётности)")
+    # Шаг 1: Инициализация UART2
+    lines.append("Шаг 1: Инициализация UART2 (9600, 8N1)")
     result = controller.execute_command("InitUart", {
         "uart_num": 2,
         "baudrate": 9600,
         "parity": 0,
         "stop_bits": 1,
         "data_bits": 8
-    })
+    }, timeout=5.0)  # увеличенный таймаут
     if not result['success']:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
         controller.disconnect()
         return "\n".join(lines)
-    lines.append("Успешно")
+    lines.append("Успешно (пины должны быть настроены в прошивке)")
     lines.append("")
 
-    # Шаг 2: Отправка данных "Hello" (5 байт)
+    # Шаг 2: Отправка данных
     lines.append("Шаг 2: Отправка данных (Hello)")
-    data_bytes = [0x48, 0x65, 0x6C, 0x6C, 0x6F]  # "Hello"
+    data_bytes = [0x48, 0x65, 0x6C, 0x6C, 0x6F]
     data_64 = data_bytes + [0] * (64 - len(data_bytes))
     result = controller.execute_command("UartSend", {
         "uart_num": 2,
         "data_len": len(data_bytes),
         "data": data_64
-    })
+    }, timeout=5.0)
     if not result['success']:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
+        lines.append("")
+        lines.append("Вероятно, пины UART2 не настроены в прошивке.")
+        lines.append("Попросите разработчика добавить настройку пинов PA2 (TX) и PA3 (RX) для UART2.")
         controller.disconnect()
         return "\n".join(lines)
     lines.append("Успешно (отправлено 5 байт)")
     lines.append("")
 
-    # Шаг 3: Приём данных (таймаут 1000 мс, максимум 10 байт)
-    lines.append("Шаг 3: Приём данных (ожидание 1000 мс, максимум 10 байт)")
+    # Шаг 3: Приём данных
+    lines.append("Шаг 3: Приём данных (таймаут 1000 мс, максимум 10 байт)")
     result = controller.execute_command("UartReceive", {
         "uart_num": 2,
         "timeout_ms": 1000,
         "max_len": 10
-    })
+    }, timeout=5.0)
     if result['success']:
         resp_data = result['response_data']
         data_len = resp_data.get('data_len', 0)
         if data_len > 0:
             received = resp_data.get('data', [])[:data_len]
-            # Проверяем, что полученные данные совпадают с отправленными
             if received == data_bytes:
-                lines.append(f"Успешно: получено {data_len} байт, данные совпадают: {received}")
+                lines.append(f"✅ Успешно: получены данные: {received}")
             else:
-                lines.append(f"Ошибка: получено {data_len} байт, данные не совпадают: {received}")
+                lines.append(f"⚠️ Получены данные, но они не совпадают: {received}")
         else:
-            lines.append("Нет данных (таймаут). Проверьте, что перемычка установлена.")
+            lines.append("⚠️ Нет данных. Проверьте перемычку TX-RX.")
     else:
-        lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
+        lines.append(f"Ошибка при приёме: {result.get('error', 'Неизвестная ошибка')}")
     lines.append("")
 
-    # Шаг 4: Деинициализация UART2
+    # Шаг 4: Деинициализация
     lines.append("Шаг 4: Деинициализация UART2")
-    result = controller.execute_command("DeinitUart", {"uart_num": 2})
+    result = controller.execute_command("DeinitUart", {"uart_num": 2}, timeout=5.0)
     if not result['success']:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
     else:
         lines.append("Успешно")
 
     controller.disconnect()
+    lines.append("")
+    lines.append("Если тест не прошёл, обратитесь к разработчику прошивки для настройки пинов UART2.")
     return "\n".join(lines)
 
 
