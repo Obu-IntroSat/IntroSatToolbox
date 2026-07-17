@@ -22,7 +22,6 @@ class TestController:
         self.is_connected = False
 
     def connect(self) -> bool:
-        """Подключение к стенду."""
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
             self.is_connected = True
@@ -32,13 +31,11 @@ class TestController:
             return False
 
     def disconnect(self) -> None:
-        """Отключение от стенда."""
         if self.ser and self.ser.is_open:
             self.ser.close()
         self.is_connected = False
 
     def send_packet(self, cmd_code: int, data_bytes: bytes) -> None:
-        """Отправляет пакет с заголовком, длиной и CRC."""
         if not self.is_connected or not self.ser:
             raise RuntimeError("Не подключено к стенду")
 
@@ -46,7 +43,7 @@ class TestController:
         if length > 255:
             raise ValueError("Данные слишком длинные")
 
-        # Сбрасываем входной буфер, чтобы удалить возможный мусор
+        # Сбрасываем входной буфер перед отправкой
         self.ser.reset_input_buffer()
 
         crc = 0
@@ -56,11 +53,7 @@ class TestController:
         packet = bytes([0xAA, cmd_code, length]) + data_bytes + bytes([crc])
         self.ser.write(packet)
 
-    def read_packet(self, timeout: float = 5.0) -> tuple[int, bytes]:
-        """
-        Читает пакет, проверяет стартовый байт и CRC.
-        Таймаут увеличен до 3 секунд для надёжности.
-        """
+    def read_packet(self, timeout: float = 3.0) -> tuple[int, bytes]:
         if not self.is_connected or not self.ser:
             raise RuntimeError("Не подключено к стенду")
 
@@ -70,7 +63,6 @@ class TestController:
             if self.ser.in_waiting:
                 byte = self.ser.read(1)
                 if byte == b'\xAA':
-                    # Начинаем сбор пакета
                     response = b'\xAA'
                     # Читаем код и длину (2 байта)
                     while len(response) < 4:
@@ -78,18 +70,15 @@ class TestController:
                             response += self.ser.read(1)
                         else:
                             time.sleep(0.001)
-                    # Длина данных
                     length = response[2]
                     total_len = 4 + length
-                    # Читаем остальные байты
                     while len(response) < total_len:
                         if self.ser.in_waiting:
                             response += self.ser.read(1)
                         else:
                             time.sleep(0.001)
-                    # Проверяем CRC
                     crc_calc = 0
-                    for b in response[1:3] + response[3:-1]:  # без стартового и последнего CRC
+                    for b in response[1:3] + response[3:-1]:
                         crc_calc ^= b
                     if crc_calc == response[-1]:
                         cmd_code = response[1]
@@ -98,30 +87,13 @@ class TestController:
                     else:
                         print(f"CRC mismatch: expected {crc_calc:02X}, got {response[-1]:02X}, ignoring packet")
                         response = b''
-                        # Продолжаем поиск следующего стартового байта
                         continue
             else:
                 time.sleep(0.01)
 
         raise TimeoutError("Ответ не получен")
 
-    def execute_command(self, cmd_name: str, params: dict, timeout: float = 5.0) -> dict:
-        """
-        Выполняет команду и возвращает результат.
-
-        Args:
-            cmd_name: Имя команды (совпадает с классом в generated_protocol)
-            params: Параметры команды
-            timeout: Таймаут ожидания ответа
-
-        Returns:
-            dict: {
-                'success': bool,
-                'response_code': int,
-                'response_data': dict,
-                'error': str или None
-            }
-        """
+    def execute_command(self, cmd_name: str, params: dict, timeout: float = 3.0) -> dict:
         if not self.is_connected:
             return {'success': False, 'error': 'Не подключено к стенду'}
 
@@ -138,6 +110,8 @@ class TestController:
                 return {'success': False, 'error': f'Не найден код для {cmd_name}'}
 
             self.send_packet(cmd_code, data_bytes)
+            # Даём плате время на обработку
+            time.sleep(0.05)
             resp_code, resp_data = self.read_packet(timeout)
 
             try:
@@ -160,9 +134,7 @@ class TestController:
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    # --- Выполнение YAML-сценария ---
     def run_scenario(self, scenario_path: str, timeout: float = 3.0) -> List[Dict[str, Any]]:
-        """Выполняет сценарий из YAML-файла."""
         with open(scenario_path, 'r', encoding='utf-8') as f:
             scenario = yaml.safe_load(f)
 
@@ -222,13 +194,9 @@ def format_scenario_results(results: List[Dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
-# --- НОВЫЕ ТЕСТЫ ДЛЯ РЕАЛЬНОЙ ПЛАТЫ ---
+# --- ТЕСТЫ ДЛЯ РЕАЛЬНОЙ ПЛАТЫ ---
 
 def execute_system_test(controller: TestController) -> str:
-    """
-    Проверка системных команд: GetVersion и GetStatus.
-    Используется как базовая проверка связи.
-    """
     lines = []
     lines.append("=== Проверка системных команд ===")
     lines.append("")
@@ -245,6 +213,9 @@ def execute_system_test(controller: TestController) -> str:
     else:
         lines.append(f"Ошибка GetVersion: {result.get('error', 'Неизвестная ошибка')}")
 
+    # Пауза между командами
+    time.sleep(0.1)
+
     # GetStatus
     result = controller.execute_command("GetStatus", {})
     if result['success'] and result['response_code'] == 201:
@@ -258,7 +229,6 @@ def execute_system_test(controller: TestController) -> str:
 
 
 def execute_gpio_test(controller: TestController) -> str:
-    """Тестирование GPIO: инициализация, установка, чтение, деинициализация."""
     lines = []
     lines.append("=== GPIO тест ===")
     lines.append("")
@@ -335,7 +305,6 @@ def execute_gpio_test(controller: TestController) -> str:
 
 
 def execute_uart_test(controller: TestController) -> str:
-    """Тестирование UART: инициализация, отправка, приём, деинициализация."""
     lines = []
     lines.append("=== UART тест ===")
     lines.append("")
@@ -362,7 +331,6 @@ def execute_uart_test(controller: TestController) -> str:
     # Шаг 2: Отправка данных "Hello" (5 байт)
     lines.append("Шаг 2: Отправка данных (Hello)")
     data_bytes = [0x48, 0x65, 0x6C, 0x6C, 0x6F]  # "Hello"
-    # Дополняем массив до 64 байт нулями (требование протокола)
     data_64 = data_bytes + [0] * (64 - len(data_bytes))
     result = controller.execute_command("UartSend", {
         "uart_num": 1,
@@ -410,22 +378,16 @@ def execute_uart_test(controller: TestController) -> str:
 # --- СУЩЕСТВУЮЩИЕ ФУНКЦИИ (с изменениями) ---
 
 def execute_connection_check(controller: TestController, target: str) -> str:
-    """Проверка подключения к МК или оснастке с использованием системных команд."""
-    # Используем execute_system_test вместо YAML-сценария
     return execute_system_test(controller)
 
 
 def execute_firmware_version(controller: TestController) -> str:
-    """Запрос версии прошивки."""
     lines = []
     lines.append("Запрос версии прошивки...")
     lines.append("")
-
     if not controller.connect():
         return "Ошибка: Не удалось подключиться к стенду"
-
     result = controller.execute_command("GetVersion", {})
-
     if result['success']:
         data = result['response_data']
         major = data.get('major', 0)
@@ -434,22 +396,17 @@ def execute_firmware_version(controller: TestController) -> str:
         lines.append(f"Версия прошивки: v{major}.{minor}.{patch}")
     else:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-
     controller.disconnect()
     return "\n".join(lines)
 
 
 def execute_stand_version(controller: TestController) -> str:
-    """Запрос версии стенда."""
     lines = []
     lines.append("Запрос версии стенда...")
     lines.append("")
-
     if not controller.connect():
         return "Ошибка: Не удалось подключиться к стенду"
-
     result = controller.execute_command("GetVersion", {})
-
     if result['success']:
         data = result['response_data']
         major = data.get('major', 0)
@@ -458,38 +415,28 @@ def execute_stand_version(controller: TestController) -> str:
         lines.append(f"Версия стенда: v{major}.{minor}.{patch}")
     else:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-
     controller.disconnect()
     return "\n".join(lines)
 
 
 def execute_i2c_test(controller: TestController, device_name: str, i2c_address: int) -> str:
-    """Выполняет I2C тест для устройства, используя YAML-сценарий."""
     if device_name == "LIS2MDL":
         scenario_path = Path(__file__).parent / "../scenarios/test_lis2mdl.yaml"
     elif device_name == "LSM6DS3":
         scenario_path = Path(__file__).parent / "../scenarios/test_lsm6ds3.yaml"
     else:
         return f"Ошибка: Неизвестное устройство {device_name}"
-
     return execute_scenario(controller, str(scenario_path))
 
 
 def execute_spi_test(controller: TestController) -> str:
-    """Выполняет SPI тест для CC1101, используя YAML-сценарий."""
     scenario_path = Path(__file__).parent / "../scenarios/test_cc1101.yaml"
     return execute_scenario(controller, str(scenario_path))
 
 
 def execute_scenario(controller: TestController, scenario_path: str) -> str:
-    """
-    Выполняет YAML-сценарий и возвращает форматированный вывод.
-    Эта функция упрощает вызов из GUI: подключается, выполняет сценарий, отключается.
-    """
     if not controller.connect():
         return "Ошибка: Не удалось подключиться к стенду"
-
     results = controller.run_scenario(scenario_path)
     controller.disconnect()
-
     return format_scenario_results(results)
