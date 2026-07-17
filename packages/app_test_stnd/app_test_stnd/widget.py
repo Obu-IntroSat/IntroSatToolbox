@@ -16,7 +16,8 @@ from .test_controller import (
     execute_firmware_version,
     execute_stand_version,
     execute_i2c_test,
-    execute_spi_test
+    execute_spi_test,
+    execute_uart_test
 )
 
 BAUD_RATES = ["9600", "19200", "38400", "57600", "115200", "230400"]
@@ -126,6 +127,7 @@ class TemplateWidget(QWidget):
             "ICT - LIS2MDL (I2C)",
             "ICT - LSM6DS3 (I2C)",
             "ICT - CC1101 (SPI)",
+            "UART тест",
             "FCT - Полное тестирование"
         ])
         test_layout.addWidget(self.test_combo)
@@ -372,6 +374,7 @@ class TemplateWidget(QWidget):
             self.output_text.append("  • ICT - LIS2MDL (I2C)")
             self.output_text.append("  • ICT - LSM6DS3 (I2C)")
             self.output_text.append("  • ICT - CC1101 (SPI)")
+            self.output_text.append("  • ICT - тест UART")
             self.output_text.append("  • FCT - Полное тестирование")
             return
 
@@ -388,6 +391,8 @@ class TemplateWidget(QWidget):
             result = execute_i2c_test(controller, "LSM6DS3", 0x6A)
         elif "CC1101" in test_name:
             result = execute_spi_test(controller)
+        elif "UART тест" in test_name:
+            result = execute_uart_test(controller, "../scenarios/test_uart.yaml")
         else:  # FCT - Полное тестирование
             result = self.run_full_test()
 

@@ -305,17 +305,20 @@ def execute_gpio_test(controller: TestController) -> str:
 
 
 def execute_uart_test(controller: TestController) -> str:
+    """Тестирование UART2: инициализация, отправка, приём (эхо), деинициализация."""
     lines = []
-    lines.append("=== UART тест ===")
+    lines.append("=== UART2 тест (эхо) ===")
+    lines.append("")
+    lines.append("Для успешного теста замкните выводы TX и RX UART2 на плате перемычкой.")
     lines.append("")
 
     if not controller.connect():
         return "Ошибка: Не удалось подключиться к стенду"
 
-    # Шаг 1: Инициализация UART1 (9600, 8N1)
-    lines.append("Шаг 1: Инициализация UART1 (9600, 8 бит, 1 стоп, без чётности)")
+    # Шаг 1: Инициализация UART2 (9600, 8N1)
+    lines.append("Шаг 1: Инициализация UART2 (9600, 8 бит, 1 стоп, без чётности)")
     result = controller.execute_command("InitUart", {
-        "uart_num": 1,
+        "uart_num": 2,
         "baudrate": 9600,
         "parity": 0,
         "stop_bits": 1,
@@ -333,7 +336,7 @@ def execute_uart_test(controller: TestController) -> str:
     data_bytes = [0x48, 0x65, 0x6C, 0x6C, 0x6F]  # "Hello"
     data_64 = data_bytes + [0] * (64 - len(data_bytes))
     result = controller.execute_command("UartSend", {
-        "uart_num": 1,
+        "uart_num": 2,
         "data_len": len(data_bytes),
         "data": data_64
     })
@@ -344,11 +347,11 @@ def execute_uart_test(controller: TestController) -> str:
     lines.append("Успешно (отправлено 5 байт)")
     lines.append("")
 
-    # Шаг 3: Приём данных (таймаут 500 мс, максимум 10 байт)
-    lines.append("Шаг 3: Приём данных (таймаут 500 мс, максимум 10 байт)")
+    # Шаг 3: Приём данных (таймаут 1000 мс, максимум 10 байт)
+    lines.append("Шаг 3: Приём данных (ожидание 1000 мс, максимум 10 байт)")
     result = controller.execute_command("UartReceive", {
-        "uart_num": 1,
-        "timeout_ms": 500,
+        "uart_num": 2,
+        "timeout_ms": 1000,
         "max_len": 10
     })
     if result['success']:
@@ -356,16 +359,20 @@ def execute_uart_test(controller: TestController) -> str:
         data_len = resp_data.get('data_len', 0)
         if data_len > 0:
             received = resp_data.get('data', [])[:data_len]
-            lines.append(f"Получено {data_len} байт: {received}")
+            # Проверяем, что полученные данные совпадают с отправленными
+            if received == data_bytes:
+                lines.append(f"Успешно: получено {data_len} байт, данные совпадают: {received}")
+            else:
+                lines.append(f"Ошибка: получено {data_len} байт, данные не совпадают: {received}")
         else:
-            lines.append("Нет данных (таймаут или пустой буфер)")
+            lines.append("Нет данных (таймаут). Проверьте, что перемычка установлена.")
     else:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
     lines.append("")
 
-    # Шаг 4: Деинициализация UART1
-    lines.append("Шаг 4: Деинициализация UART1")
-    result = controller.execute_command("DeinitUart", {"uart_num": 1})
+    # Шаг 4: Деинициализация UART2
+    lines.append("Шаг 4: Деинициализация UART2")
+    result = controller.execute_command("DeinitUart", {"uart_num": 2})
     if not result['success']:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
     else:

@@ -1,0 +1,37 @@
+name: "Тестирование UART (эхо-тест)"
+description: |
+  Проверка работы UART2. Для успешного выполнения необходимо замкнуть выводы TX и RX UART2 на плате (перемычкой).
+  Шаги:
+  1. Инициализация UART2 (скорость 9600, 8 бит, 1 стоп, без чётности)
+  2. Отправка данных (строка "Hello UART!")
+  3. Приём данных (ожидание до 20 байт, таймаут 1000 мс)
+  4. Деинициализация UART2
+
+steps:
+  - description: "Инициализация UART2 (9600, 8N1)"
+    command: InitUart
+    params:
+      uart_num: 2
+      baudrate: 9600
+      parity: 0        # 0 - none
+      stop_bits: 1     # 1 стоп-бит
+      data_bits: 8     # 8 бит данных
+
+  - description: "Отправка данных (Hello UART!)"
+    command: UartSend
+    params:
+      uart_num: 2
+      data_len: 12     # длина строки "Hello UART!"
+      data: [0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x20, 0x55, 0x41, 0x52, 0x54, 0x21, 0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]  # 64 байта
+
+  - description: "Приём данных (ожидание до 20 байт, таймаут 1000 мс)"
+    command: UartReceive
+    params:
+      uart_num: 2
+      timeout_ms: 1000
+      max_len: 20
+
+  - description: "Деинициализация UART2"
+    command: DeinitUart
+    params:
+      uart_num: 2
