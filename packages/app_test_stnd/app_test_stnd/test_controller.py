@@ -305,14 +305,12 @@ def execute_gpio_test(controller: TestController) -> str:
 
 
 def execute_uart_test(controller: TestController) -> str:
-    """Тестирование UART2 (эхо) – требует настройки пинов в прошивке."""
+    """Тестирование UART2: инициализация, отправка, опциональный приём (эхо)."""
     lines = []
-    lines.append("=== UART2 тест (эхо) ===")
+    lines.append("=== UART2 тест (отправка + опциональный приём) ===")
     lines.append("")
-    lines.append("⚠️ Внимание: для работы теста необходимо:")
-    lines.append("  1. Замкнуть перемычкой выводы TX и RX UART2 на плате (PA2 и PA3).")
-    lines.append("  2. В прошивке должны быть настроены пины UART2 в HAL_UART_MspInit.")
-    lines.append("  3. Если пины не настроены, тест завершится с ошибкой.")
+    lines.append("⚠️ Для полноценного эхо-теста замкните перемычкой TX и RX UART2 (PA2 и PA3).")
+    lines.append("   Если перемычка отсутствует, приём будет пропущен, но отправка будет проверена.")
     lines.append("")
 
     if not controller.connect():
@@ -326,12 +324,12 @@ def execute_uart_test(controller: TestController) -> str:
         "parity": 0,
         "stop_bits": 1,
         "data_bits": 8
-    }, timeout=5.0)  # увеличенный таймаут
+    }, timeout=5.0)
     if not result['success']:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
         controller.disconnect()
         return "\n".join(lines)
-    lines.append("Успешно (пины должны быть настроены в прошивке)")
+    lines.append("Успешно")
     lines.append("")
 
     # Шаг 2: Отправка данных
@@ -345,16 +343,13 @@ def execute_uart_test(controller: TestController) -> str:
     }, timeout=5.0)
     if not result['success']:
         lines.append(f"Ошибка: {result.get('error', 'Неизвестная ошибка')}")
-        lines.append("")
-        lines.append("Вероятно, пины UART2 не настроены в прошивке.")
-        lines.append("Попросите разработчика добавить настройку пинов PA2 (TX) и PA3 (RX) для UART2.")
         controller.disconnect()
         return "\n".join(lines)
     lines.append("Успешно (отправлено 5 байт)")
     lines.append("")
 
-    # Шаг 3: Приём данных
-    lines.append("Шаг 3: Приём данных (таймаут 1000 мс, максимум 10 байт)")
+    # Шаг 3: Попытка приёма (опционально)
+    lines.append("Шаг 3: Попытка приёма данных (эхо, таймаут 1000 мс, максимум 10 байт)")
     result = controller.execute_command("UartReceive", {
         "uart_num": 2,
         "timeout_ms": 1000,
@@ -366,13 +361,13 @@ def execute_uart_test(controller: TestController) -> str:
         if data_len > 0:
             received = resp_data.get('data', [])[:data_len]
             if received == data_bytes:
-                lines.append(f"✅ Успешно: получены данные: {received}")
+                lines.append("✅ Успешно: получены данные, совпадают с отправленными")
             else:
                 lines.append(f"⚠️ Получены данные, но они не совпадают: {received}")
         else:
-            lines.append("⚠️ Нет данных. Проверьте перемычку TX-RX.")
+            lines.append("⚠️ Данные не получены (возможно, нет перемычки). Приём пропущен.")
     else:
-        lines.append(f"Ошибка при приёме: {result.get('error', 'Неизвестная ошибка')}")
+        lines.append(f"⚠️ Ошибка при приёме: {result.get('error', 'Неизвестная ошибка')}")
     lines.append("")
 
     # Шаг 4: Деинициализация
@@ -385,7 +380,7 @@ def execute_uart_test(controller: TestController) -> str:
 
     controller.disconnect()
     lines.append("")
-    lines.append("Если тест не прошёл, обратитесь к разработчику прошивки для настройки пинов UART2.")
+    lines.append("Тест завершён. Если приём не сработал, установите перемычку TX-RX для полноценной проверки.")
     return "\n".join(lines)
 
 
