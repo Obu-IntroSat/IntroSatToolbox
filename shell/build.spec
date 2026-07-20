@@ -52,7 +52,6 @@ APP_PACKAGES = [pkg for _, pkg, _ in TAB_APPS]
 ALL_DISTRIBUTIONS = [CORE_DISTRIBUTION, *APP_DISTRIBUTIONS]
 ALL_PACKAGES = [CORE_PACKAGE, *APP_PACKAGES]
 
-# Editable installs are not always visible to PyInstaller; point at sources directly.
 pathex = [os.path.join(PACKAGES, "core"), *[pkg_dir for _, _, pkg_dir in TAB_APPS]]
 
 datas = []
@@ -61,6 +60,14 @@ for dist in ALL_DISTRIBUTIONS:
     datas += copy_metadata(dist)
 for pkg in ALL_PACKAGES:
     hiddenimports += collect_submodules(pkg)
+
+# === ADD FIRMWARE_REPOSITORIES.JSON ===
+config_file = os.path.join(PACKAGES, "app_firmware_gitrepo", "firmware_repositories.json")
+if os.path.exists(config_file):
+    datas.append((config_file, "."))
+    print(f"[build.spec] Added firmware_repositories.json")
+else:
+    print(f"[build.spec] WARNING: firmware_repositories.json not found at {config_file}")
 
 # === ADD RESOURCES ===
 resources_dir = os.path.join(SPEC_DIR, "..", "resources")
@@ -105,5 +112,5 @@ exe = EXE(
     a.datas,
     [],
     name="IntroSatToolbox",
-    console=False,
+    console=True,
 )
