@@ -3,7 +3,7 @@
 #
 # The launcher finds apps through entry point metadata, so that metadata must be
 # bundled. List every app distribution you want included below.
-from PyInstaller.utils.hooks import collect_submodules, copy_metadata
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata, collect_data_files
 from pathlib import Path
 import os
 
@@ -26,14 +26,17 @@ APP_PACKAGES = [
 datas = []
 hiddenimports = []
 
+# Add metadata for each distribution
 for dist in APP_DISTRIBUTIONS:
     datas += copy_metadata(dist)
     print(f"[build.spec] Added metadata for: {dist}")
 
+# Add submodules for each package
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
     print(f"[build.spec] Added submodules for: {pkg}")
 
+# Add satcore
 hiddenimports += collect_submodules('satcore')
 print("[build.spec] Added satcore submodules")
 
@@ -50,28 +53,24 @@ except Exception as e:
 spec_dir = Path(os.getcwd())
 packages_dir = spec_dir.parent / "packages"
 
+# Add each app package as a whole package
 for pkg in APP_PACKAGES:
-    pkg_dir = packages_dir / pkg / pkg
+    pkg_dir = packages_dir / pkg
     if pkg_dir.exists():
-        for file in pkg_dir.rglob('*.py'):
-            datas.append((str(file), f"{pkg}"))
-            print(f"[build.spec] Added app file: {file}")
-    else:
-        print(f"[build.spec] Warning: app package not found at {pkg_dir}")
-
-for pkg in APP_PACKAGES:
-    egg_info_path = packages_dir / pkg / f"{pkg}.egg-info"
-    if egg_info_path.exists():
-        for file in egg_info_path.rglob('*'):
+        for file in pkg_dir.rglob('*'):
             if file.is_file():
-                datas.append((str(file), f"{pkg}.egg-info"))
-                print(f"[build.spec] Added egg-info: {file}")
+                # Preserve the package structure: app_comms/__init__.py, app_comms/plugin.py, etc.
+                rel_path = file.relative_to(packages_dir)
+                datas.append((str(file), str(rel_path.parent)))
+                print(f"[build.spec] Added package file: {rel_path}")
     else:
-        print(f"[build.spec] Warning: egg-info not found for {pkg} at {egg_info_path}")
+        print(f"[build.spec] Warning: package not found at {pkg_dir}")
 
 a = Analysis(
     ["shell/main.py"],
-    pathex=[],
+    pathex=[
+        str(packages_dir),  # Add packages to Python path
+    ],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
