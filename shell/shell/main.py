@@ -16,6 +16,13 @@ from PySide6.QtWidgets import (
 
 from satcore import discover_plugins
 
+def setup_paths():
+    if getattr(sys, 'frozen', False):
+        app_dir = Path(sys.executable).parent
+        packages_path = app_dir / "packages"
+        if packages_path.exists():
+            sys.path.insert(0, str(packages_path))
+            print(f"[DEBUG] Added packages path: {packages_path}")
 
 class MainWindow(QMainWindow):
     def __init__(self):

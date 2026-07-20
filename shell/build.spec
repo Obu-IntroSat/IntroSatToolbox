@@ -25,7 +25,6 @@ APP_PACKAGES = [
     "app_firmware_gitrepo",
 ]
 
-# Add packages directory to Python path so imports work
 pathex = [
     PACKAGES,
     os.path.join(PACKAGES, "core"),
@@ -35,12 +34,14 @@ pathex = [
 datas = []
 hiddenimports = []
 
+# CRITICAL: Add metadata for each distribution (includes entry points)
 for dist in APP_DISTRIBUTIONS:
-    datas += copy_metadata(dist)
-    print(f"[build.spec] Added metadata for: {dist}")
+    metadata = copy_metadata(dist)
+    datas += metadata
+    print(f"[build.spec] Added metadata for: {dist} ({len(metadata)} files)")
 
+# Add submodules for each package
 for pkg in APP_PACKAGES:
-    # Collect all submodules for each package
     hiddenimports += collect_submodules(pkg)
     print(f"[build.spec] Added submodules for: {pkg}")
 
@@ -62,11 +63,11 @@ try:
 except Exception as e:
     print(f"[build.spec] Warning: Could not add satcore: {e}")
 
-# Add app source files - IMPORTANT: preserve package structure
+# Add app source files
 for pkg in APP_PACKAGES:
-    pkg_dir = os.path.join(PACKAGES, pkg)
-    if os.path.exists(pkg_dir):
-        for root, dirs, files in os.walk(pkg_dir):
+    pkg_internal_dir = os.path.join(PACKAGES, pkg, pkg)
+    if os.path.exists(pkg_internal_dir):
+        for root, dirs, files in os.walk(pkg_internal_dir):
             for file in files:
                 if file.endswith('.py'):
                     full_path = os.path.join(root, file)
@@ -74,14 +75,20 @@ for pkg in APP_PACKAGES:
                     datas.append((full_path, os.path.dirname(rel_path)))
                     print(f"[build.spec] Added app file: {rel_path}")
     else:
-        print(f"[build.spec] Warning: package not found at {pkg_dir}")
+        print(f"[build.spec] Warning: internal package not found at {pkg_internal_dir}")
 
-# Also add __init__.py files explicitly to ensure packages are recognized
+# Also add .egg-info directories explicitly (they contain entry_points.txt)
 for pkg in APP_PACKAGES:
-    init_file = os.path.join(PACKAGES, pkg, "__init__.py")
-    if os.path.exists(init_file):
-        datas.append((init_file, pkg))
-        print(f"[build.spec] Added __init__.py for {pkg}")
+    egg_info_dir = os.path.join(PACKAGES, pkg, f"{pkg}.egg-info")
+    if os.path.exists(egg_info_dir):
+        for root, dirs, files in os.walk(egg_info_dir):
+            for file in files:
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, PACKAGES)
+                datas.append((full_path, os.path.dirname(rel_path)))
+                print(f"[build.spec] Added egg-info: {rel_path}")
+    else:
+        print(f"[build.spec] Warning: egg-info not found at {egg_info_dir}")
 
 a = Analysis(
     ["shell/main.py"],
