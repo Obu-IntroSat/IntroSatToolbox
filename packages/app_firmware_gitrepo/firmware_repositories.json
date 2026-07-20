@@ -1,0 +1,30 @@
+{
+  "repositories": [
+    {
+      "name": "firmware-e_sbs_1.x",
+      "url": "https://github.com/Obu-IntroSat/firmware-e_sbs_1.x",
+      "description": "Прошивка платы имитатора солнечных батарей для версии 1.4",
+      "device": "STM32",
+      "file_pattern": "*.elf"
+    },
+    {
+      "name": "firmware-pl_psm_1.x",
+      "url": "https://github.com/Obu-IntroSat/firmware-pl_psm_1.x",
+      "description": "no description",
+      "device": "STM32",
+      "file_pattern": "*.elf"
+    },
+    {
+      "name": "firmware-bluepill_blink",
+      "url": "https://github.com/Obu-IntroSat/firmware-bluepill_blink",
+      "description": "Прошивка для Blue Pill (мигание)",
+      "device": "STM32",
+      "file_pattern": "*.bin"
+    }
+  ],
+  "settings": {
+    "local_storage": ".introsat/firmware",
+    "check_interval_hours": 24,
+    "max_releases_per_repo": 10
+  }
+}

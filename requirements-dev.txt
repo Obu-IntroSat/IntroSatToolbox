@@ -4,6 +4,7 @@
 -e packages/app_comms
 -e packages/app_firmware
 -e packages/app_template
+-e packages/app_firmware_gitrepo
 -e shell
 
 # Build tool for producing executables.
