@@ -3,11 +3,13 @@
 #
 # The launcher finds apps through entry point metadata, so that metadata must be
 # bundled. List every app distribution you want included below.
-from PyInstaller.utils.hooks import collect_submodules, copy_metadata, collect_data_files
-from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata
 import os
 
 block_cipher = None
+
+SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
+PACKAGES = os.path.abspath(os.path.join(SPEC_DIR, "..", "packages"))
 
 # Apps to bundle into the combined executable.
 APP_DISTRIBUTIONS = [
@@ -23,54 +25,58 @@ APP_PACKAGES = [
     "app_firmware_gitrepo",
 ]
 
+pathex = [
+    PACKAGES,
+    os.path.join(PACKAGES, "core"),
+    SPEC_DIR,
+]
+
 datas = []
 hiddenimports = []
 
-# Add metadata for each distribution
 for dist in APP_DISTRIBUTIONS:
     datas += copy_metadata(dist)
     print(f"[build.spec] Added metadata for: {dist}")
 
-# Add submodules for each package
 for pkg in APP_PACKAGES:
     hiddenimports += collect_submodules(pkg)
     print(f"[build.spec] Added submodules for: {pkg}")
 
-# Add satcore
 hiddenimports += collect_submodules('satcore')
 print("[build.spec] Added satcore submodules")
 
+# Add satcore source files
 try:
     import satcore
-    satcore_path = Path(satcore.__file__).parent
-    if satcore_path.exists():
-        for file in satcore_path.rglob('*.py'):
-            datas.append((str(file), "satcore"))
+    satcore_path = os.path.dirname(satcore.__file__)
+    if os.path.exists(satcore_path):
+        for root, dirs, files in os.walk(satcore_path):
+            for file in files:
+                if file.endswith('.py'):
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, PACKAGES)
+                    datas.append((full_path, os.path.dirname(rel_path)))
         print("[build.spec] Added satcore files to datas")
 except Exception as e:
     print(f"[build.spec] Warning: Could not add satcore: {e}")
 
-spec_dir = Path(os.getcwd())
-packages_dir = spec_dir.parent / "packages"
-
-# Add each app package as a whole package
+# Add app source files
 for pkg in APP_PACKAGES:
-    pkg_dir = packages_dir / pkg
-    if pkg_dir.exists():
-        for file in pkg_dir.rglob('*'):
-            if file.is_file():
-                # Preserve the package structure: app_comms/__init__.py, app_comms/plugin.py, etc.
-                rel_path = file.relative_to(packages_dir)
-                datas.append((str(file), str(rel_path.parent)))
-                print(f"[build.spec] Added package file: {rel_path}")
+    pkg_dir = os.path.join(PACKAGES, pkg)
+    if os.path.exists(pkg_dir):
+        for root, dirs, files in os.walk(pkg_dir):
+            for file in files:
+                if file.endswith('.py'):
+                    full_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(full_path, PACKAGES)
+                    datas.append((full_path, os.path.dirname(rel_path)))
+                    print(f"[build.spec] Added app file: {rel_path}")
     else:
         print(f"[build.spec] Warning: package not found at {pkg_dir}")
 
 a = Analysis(
     ["shell/main.py"],
-    pathex=[
-        str(packages_dir),  # Add packages to Python path
-    ],
+    pathex=pathex,
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
