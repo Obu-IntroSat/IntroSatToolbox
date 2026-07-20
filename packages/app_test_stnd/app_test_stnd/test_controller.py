@@ -443,6 +443,11 @@ def execute_spi_test(controller: TestController) -> str:
     return execute_scenario(controller, str(scenario_path))
 
 
+def execute_general_scenario(controller: TestController) -> str:
+    scenario_path = Path(__file__).parent / "../scenarios/test_title.yaml"
+    return execute_scenario(controller, str(scenario_path))
+
+
 def execute_scenario(controller: TestController, scenario_path: str) -> str:
     if not controller.connect():
         return "Ошибка: Не удалось подключиться к стенду"

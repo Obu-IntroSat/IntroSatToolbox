@@ -52,6 +52,9 @@ UART_INVALID_NUM = 210
 UART_INVALID_STOP_BITS = 220
 UART_INVALID_PARITY = 230
 UART_INVALID_DATA_BITS = 240
+SPI_INIT_FAIL = 300
+SPI_INVALID_PRESCALER = 310
+SPI_INVALID_NUM = 320
 
 # ---------- Вспомогательные функции ----------
 def _pack_value(value, field_type):
@@ -552,17 +555,17 @@ class DeinitI2c:
 
 class InitSpi:
     """
-    Инициализация модуля SPI
+    Инициализация модуля SPI с указанием делителя частоты
     Код команды: 122
     Поля:
-      - spi_num (uint8) – 
-      - speed (uint32) – Частота в Гц
+      - spi_num (uint8) – Номер SPI (1,2...)
+      - prescaler (uint8) – Делитель тактовой частоты SPI: 2,4,8,16,32,64,128,256
       - mode (uint8) – Режим SPI (0-3)
       - bit_order (uint8) – 0 - MSB first, 1 - LSB first
     """
-    def __init__(self, spi_num, speed, mode, bit_order):
+    def __init__(self, spi_num, prescaler, mode, bit_order):
         self.spi_num = spi_num
-        self.speed = speed
+        self.prescaler = prescaler
         self.mode = mode
         self.bit_order = bit_order
 
@@ -570,7 +573,7 @@ class InitSpi:
         """Упаковывает запрос в байтовую последовательность (без заголовка)."""
         result = b''
         result += _pack_value(self.spi_num, 'uint8')
-        result += _pack_value(self.speed, 'uint32')
+        result += _pack_value(self.prescaler, 'uint8')
         result += _pack_value(self.mode, 'uint8')
         result += _pack_value(self.bit_order, 'uint8')
         return result
@@ -691,7 +694,7 @@ class GpioReadResp:
     Код ответа: 204
     Поля:
       - status (uint8) – 0 - OK, 1 - ERROR
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - value (bool) – Состояние пина
     """
     def __init__(self, data: bytes):
@@ -703,12 +706,12 @@ class GpioReadResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.value = _unpack_value(data[offset:], 'bool')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -722,7 +725,7 @@ class AdcReadResp:
     Код ответа: 205
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - voltage_mv (uint16) – Напряжение в милливольтах
     """
     def __init__(self, data: bytes):
@@ -734,12 +737,12 @@ class AdcReadResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.voltage_mv = _unpack_value(data[offset:], 'uint16')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -753,7 +756,7 @@ class EepromReadResp:
     Код ответа: 206
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - data_len (uint8) – Реальная длина данных
       - data (uint8[64]) – Прочитанные данные
     """
@@ -766,12 +769,12 @@ class EepromReadResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.data_len = _unpack_value(data[offset:], 'uint8')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -788,7 +791,7 @@ class I2cProbeResp:
     Код ответа: 207
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - present (bool) – Устройство обнаружено
     """
     def __init__(self, data: bytes):
@@ -800,12 +803,12 @@ class I2cProbeResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.present = _unpack_value(data[offset:], 'bool')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -819,7 +822,7 @@ class I2cReadRegisterResp:
     Код ответа: 208
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - data_len (uint8) – 
       - data (uint8[8]) – Прочитанные данные регистра
     """
@@ -832,12 +835,12 @@ class I2cReadRegisterResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.data_len = _unpack_value(data[offset:], 'uint8')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -854,7 +857,7 @@ class I2cReadResp:
     Код ответа: 209
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - data_len (uint8) – 
       - data (uint8[64]) – Прочитанные данные
     """
@@ -867,12 +870,12 @@ class I2cReadResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.data_len = _unpack_value(data[offset:], 'uint8')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -889,7 +892,7 @@ class SpiReceiveResp:
     Код ответа: 210
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - data_len (uint8) – 
       - data (uint8[64]) – Полученные данные
     """
@@ -902,12 +905,12 @@ class SpiReceiveResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.data_len = _unpack_value(data[offset:], 'uint8')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -924,7 +927,7 @@ class SpiExchangeResp:
     Код ответа: 211
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - rx_len (uint8) – 
       - rx_data (uint8[64]) – Полученные данные
     """
@@ -937,12 +940,12 @@ class SpiExchangeResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.rx_len = _unpack_value(data[offset:], 'uint8')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
@@ -959,7 +962,7 @@ class UartReceiveResp:
     Код ответа: 212
     Поля:
       - status (uint8) – 
-      - error_code (uint8) – 
+      - error_code (uint32) – 
       - data_len (uint8) – 
       - data (uint8[64]) – Принятые данные
     """
@@ -972,12 +975,12 @@ class UartReceiveResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
         self.data_len = _unpack_value(data[offset:], 'uint8')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',

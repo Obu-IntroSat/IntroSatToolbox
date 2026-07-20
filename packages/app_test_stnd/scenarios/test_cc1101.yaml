@@ -14,7 +14,7 @@ steps:
     command: InitSpi
     params:
       spi_num: 1
-      speed: 1000000
+      prescaler: 2
       mode: 0
       bit_order: 0
 

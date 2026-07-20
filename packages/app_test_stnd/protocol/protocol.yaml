@@ -210,11 +210,11 @@ commands:
     code: 122
     type: request
     fields:
-      - { name: spi_num, type: uint8 }
-      - { name: speed, type: uint32, description: "Частота в Гц" }
+      - { name: spi_num, type: uint8, description: "Номер SPI (1,2...)" }
+      - { name: prescaler, type: uint8, description: "Делитель тактовой частоты SPI: 2,4,8,16,32,64,128,256" }
       - { name: mode, type: uint8, description: "Режим SPI (0-3)" }
       - { name: bit_order, type: uint8, description: "0 - MSB first, 1 - LSB first" }
-    description: "Инициализация модуля SPI"
+    description: "Инициализация модуля SPI с указанием делителя частоты"
 
   - name: DeinitSpi
     code: 123
@@ -263,7 +263,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8, description: "0 - OK, 1 - ERROR" }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: value, type: bool, description: "Состояние пина" }
     description: "Ответ на GpioRead"
 
@@ -272,7 +272,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: voltage_mv, type: uint16, description: "Напряжение в милливольтах" }
     description: "Ответ на AdcRead"
 
@@ -281,7 +281,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: data_len, type: uint8, description: "Реальная длина данных" }
       - { name: data, type: "uint8[64]", description: "Прочитанные данные" }
     description: "Ответ на EepromRead"
@@ -291,7 +291,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: present, type: bool, description: "Устройство обнаружено" }
     description: "Ответ на I2cProbe"
 
@@ -300,7 +300,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: data_len, type: uint8 }
       - { name: data, type: "uint8[8]", description: "Прочитанные данные регистра" }
     description: "Ответ на I2cReadRegister"
@@ -310,7 +310,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: data_len, type: uint8 }
       - { name: data, type: "uint8[64]", description: "Прочитанные данные" }
     description: "Ответ на I2cRead"
@@ -320,7 +320,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: data_len, type: uint8 }
       - { name: data, type: "uint8[64]", description: "Полученные данные" }
     description: "Ответ на SpiReceive"
@@ -330,7 +330,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: rx_len, type: uint8 }
       - { name: rx_data, type: "uint8[64]", description: "Полученные данные" }
     description: "Ответ на SpiExchange"
@@ -340,7 +340,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8 }
-      - { name: error_code, type: uint8 }
+      - { name: error_code, type: uint32 }
       - { name: data_len, type: uint8 }
       - { name: data, type: "uint8[64]", description: "Принятые данные" }
     description: "Ответ на UartReceive"
@@ -361,3 +361,6 @@ error_codes:
   UART_INVALID_STOP_BITS: 220
   UART_INVALID_PARITY: 230
   UART_INVALID_DATA_BITS: 240
+  SPI_INIT_FAIL: 300
+  SPI_INVALID_PRESCALER: 310   # неверный делитель (не степень двойки)
+  SPI_INVALID_NUM: 320         # неверный номер SPI

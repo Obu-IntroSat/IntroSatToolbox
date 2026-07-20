@@ -54,6 +54,9 @@
 #define UART_INVALID_STOP_BITS 220
 #define UART_INVALID_PARITY 230
 #define UART_INVALID_DATA_BITS 240
+#define SPI_INIT_FAIL 300
+#define SPI_INVALID_PRESCALER 310
+#define SPI_INVALID_NUM 320
 
 /**
  * Запрос версии прошивки стенда
@@ -258,12 +261,12 @@ typedef struct {
 } RequestDeinitI2c;
 
 /**
- * Инициализация модуля SPI
+ * Инициализация модуля SPI с указанием делителя частоты
  * Код: 122
  */
 typedef struct {
     uint8_t spi_num;
-    uint32_t speed;
+    uint8_t prescaler;
     uint8_t mode;
     uint8_t bit_order;
 } RequestInitSpi;
@@ -321,7 +324,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     bool value;
 } ResponseGpioReadResp;
 
@@ -331,7 +334,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     uint16_t voltage_mv;
 } ResponseAdcReadResp;
 
@@ -341,7 +344,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     uint8_t data_len;
     uint8_t data[64];
 } ResponseEepromReadResp;
@@ -352,7 +355,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     bool present;
 } ResponseI2cProbeResp;
 
@@ -362,7 +365,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     uint8_t data_len;
     uint8_t data[8];
 } ResponseI2cReadRegisterResp;
@@ -373,7 +376,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     uint8_t data_len;
     uint8_t data[64];
 } ResponseI2cReadResp;
@@ -384,7 +387,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     uint8_t data_len;
     uint8_t data[64];
 } ResponseSpiReceiveResp;
@@ -395,7 +398,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     uint8_t rx_len;
     uint8_t rx_data[64];
 } ResponseSpiExchangeResp;
@@ -406,7 +409,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
     uint8_t data_len;
     uint8_t data[64];
 } ResponseUartReceiveResp;
