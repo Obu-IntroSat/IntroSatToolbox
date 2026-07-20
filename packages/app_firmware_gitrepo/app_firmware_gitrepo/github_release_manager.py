@@ -34,6 +34,8 @@ class GitHubReleaseManager:
         self._current_owner = ""
         self._current_repo = ""
         self.load_config()
+        print(f"[DEBUG] GitHubReleaseManager config path: {self.config_path}")
+        print(f"[DEBUG] GitHubReleaseManager config exists: {self.config_path.exists()}")
         
     def load_config(self):
         """Загружает конфигурацию из JSON файла."""
@@ -44,11 +46,11 @@ class GitHubReleaseManager:
                     self.repositories = data.get('repositories', [])
                     settings = data.get('settings', {})
                     
-                    # Обновляем путь хранения если указан
                     if settings.get('local_storage'):
                         self.storage_path = Path.home() / settings['local_storage']
                     
                     self.max_releases = settings.get('max_releases_per_repo', 10)
+                    print(f"[DEBUG] Loaded {len(self.repositories)} repositories")
             except Exception as e:
                 print(f"Ошибка загрузки конфигурации: {e}")
                 self.repositories = []
@@ -73,7 +75,6 @@ class GitHubReleaseManager:
             releases = self.get_repo_releases(repo)
             all_firmware.extend(releases)
         
-        # Сортируем по дате (свежие сверху)
         all_firmware.sort(key=lambda x: x.get('published_at', ''), reverse=True)
         
         return all_firmware
@@ -94,28 +95,23 @@ class GitHubReleaseManager:
         device = repo.get('device', 'Unknown')
         pattern = repo.get('file_pattern', '*.elf')
         
-        # Извлекаем owner и repo из URL
         parts = repo_url.rstrip('/').split('/')
         self._current_owner = parts[-2]
         self._current_repo = parts[-1]
         
-        # API URL для получения релизов
         api_url = f"https://api.github.com/repos/{self._current_owner}/{self._current_repo}/releases"
         
         try:
-            # Добавляем заголовки с токеном
             headers = {
                 "Accept": "application/vnd.github+json"
             }
             if self.token:
                 headers["Authorization"] = f"Bearer {self.token}"
             
-            # Получаем релизы через API
             response = requests.get(api_url, headers=headers, timeout=30)
             response.raise_for_status()
             releases = response.json()
             
-            # Ограничиваем количество релизов
             releases = releases[:self.max_releases]
             
             for release in releases:
@@ -124,19 +120,15 @@ class GitHubReleaseManager:
                 release_name = release.get('name', tag_name)
                 prerelease = release.get('prerelease', False)
                 
-                # Создаем папку для релиза
                 release_dir = self.storage_path / repo_name / tag_name
                 
-                # Ищем файлы прошивок в assets
                 assets = release.get('assets', [])
                 for asset in assets:
                     asset_name = asset.get('name', '')
                     asset_id = asset.get('id')
                     asset_url = asset.get('browser_download_url', '')
                     
-                    # Проверяем соответствие паттерну
                     if re.search(pattern.replace('*', '.*'), asset_name):
-                        # Загружаем файл через API по ID
                         local_path = self.download_asset(
                             asset_url, 
                             release_dir, 
@@ -160,13 +152,11 @@ class GitHubReleaseManager:
                                 'size': asset.get('size', 0)
                             })
                 
-                # Также проверяем zip архивы (могут содержать прошивки)
                 for asset in assets:
                     asset_name = asset.get('name', '')
                     if asset_name.endswith('.zip'):
                         asset_id = asset.get('id')
                         zip_url = asset.get('browser_download_url', '')
-                        # Скачиваем и распаковываем zip через API
                         zip_path = self.download_asset(
                             zip_url, 
                             release_dir, 
@@ -204,20 +194,10 @@ class GitHubReleaseManager:
     def download_asset(self, url: str, target_dir: Path, filename: str, asset_id: Optional[int] = None) -> Optional[Path]:
         """
         Скачивает файл с GitHub через API.
-        
-        Args:
-            url: URL для скачивания (browser_download_url, используется как fallback)
-            target_dir: Папка для сохранения
-            filename: Имя файла
-            asset_id: ID файла в GitHub API (приоритетный способ скачивания)
-            
-        Returns:
-            Путь к скачанному файлу или None
         """
         target_dir.mkdir(parents=True, exist_ok=True)
         file_path = target_dir / filename
         
-        # Проверяем, не скачан ли уже файл
         if file_path.exists():
             return file_path
         
@@ -229,12 +209,10 @@ class GitHubReleaseManager:
             if self.token:
                 headers["Authorization"] = f"Bearer {self.token}"
             
-            # Если есть asset_id, используем API для скачивания (предпочтительный способ)
             if asset_id and self._current_owner and self._current_repo:
                 download_url = f"https://api.github.com/repos/{self._current_owner}/{self._current_repo}/releases/assets/{asset_id}"
                 print(f"Скачивание через API: {download_url}")
             else:
-                # Fallback на browser_download_url
                 download_url = url
                 print(f"Скачивание через browser URL: {download_url}")
             
@@ -255,7 +233,6 @@ class GitHubReleaseManager:
             
         except Exception as e:
             print(f"Ошибка скачивания {filename}: {e}")
-            # Удаляем частично скачанный файл
             if file_path.exists():
                 file_path.unlink()
             return None
@@ -263,23 +240,13 @@ class GitHubReleaseManager:
     def extract_firmware_from_zip(self, zip_path: Path, extract_dir: Path, pattern: str) -> List[Path]:
         """
         Извлекает файлы прошивок из zip архива.
-        
-        Args:
-            zip_path: Путь к zip файлу
-            extract_dir: Папка для извлечения
-            pattern: Паттерн для фильтрации
-            
-        Returns:
-            Список путей к найденным файлам прошивок
         """
         extracted_files = []
         
         try:
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                 for file_info in zip_ref.filelist:
-                    # Проверяем соответствие паттерну
                     if re.search(pattern.replace('*', '.*'), file_info.filename):
-                        # Извлекаем файл
                         extracted_path = zip_ref.extract(file_info, extract_dir)
                         extracted_files.append(Path(extracted_path))
         except Exception as e:
@@ -290,27 +257,31 @@ class GitHubReleaseManager:
     def get_cached_firmware(self) -> List[Dict]:
         """
         Получает список локально кэшированных прошивок.
-        
-        Returns:
-            Список прошивок из локального хранилища
         """
         firmware_list = []
         
         if not self.storage_path.exists():
             return firmware_list
         
-        # Проходим по всем папкам репозиториев
         for repo_dir in self.storage_path.iterdir():
             if not repo_dir.is_dir():
                 continue
             
-            # Проходим по версиям
             for version_dir in repo_dir.iterdir():
                 if not version_dir.is_dir():
                     continue
                 
-                # Ищем файлы прошивок
                 for file_path in version_dir.glob('*.elf'):
+                    firmware_list.append({
+                        'name': file_path.name,
+                        'path': str(file_path),
+                        'version': version_dir.name,
+                        'device': self._detect_device_from_path(repo_dir.name),
+                        'repo': repo_dir.name,
+                        'cached': True
+                    })
+                
+                for file_path in version_dir.glob('*.bin'):
                     firmware_list.append({
                         'name': file_path.name,
                         'path': str(file_path),
@@ -345,9 +316,6 @@ class GitHubReleaseManager:
     def cleanup_old_releases(self, keep_count: int = 10):
         """
         Удаляет старые версии прошивок.
-        
-        Args:
-            keep_count: Сколько последних версий оставить
         """
         if not self.storage_path.exists():
             return
@@ -356,13 +324,9 @@ class GitHubReleaseManager:
             if not repo_dir.is_dir():
                 continue
             
-            # Получаем все папки версий
             versions = [d for d in repo_dir.iterdir() if d.is_dir()]
-            
-            # Сортируем по дате создания
             versions.sort(key=lambda x: x.stat().st_mtime, reverse=True)
             
-            # Удаляем старые
             for version_dir in versions[keep_count:]:
                 try:
                     shutil.rmtree(version_dir)
