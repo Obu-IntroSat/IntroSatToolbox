@@ -25,6 +25,7 @@ APP_PACKAGES = [
     "app_firmware_gitrepo",
 ]
 
+# Add packages directory to Python path so imports work
 pathex = [
     PACKAGES,
     os.path.join(PACKAGES, "core"),
@@ -39,6 +40,7 @@ for dist in APP_DISTRIBUTIONS:
     print(f"[build.spec] Added metadata for: {dist}")
 
 for pkg in APP_PACKAGES:
+    # Collect all submodules for each package
     hiddenimports += collect_submodules(pkg)
     print(f"[build.spec] Added submodules for: {pkg}")
 
@@ -60,7 +62,7 @@ try:
 except Exception as e:
     print(f"[build.spec] Warning: Could not add satcore: {e}")
 
-# Add app source files
+# Add app source files - IMPORTANT: preserve package structure
 for pkg in APP_PACKAGES:
     pkg_dir = os.path.join(PACKAGES, pkg)
     if os.path.exists(pkg_dir):
@@ -73,6 +75,13 @@ for pkg in APP_PACKAGES:
                     print(f"[build.spec] Added app file: {rel_path}")
     else:
         print(f"[build.spec] Warning: package not found at {pkg_dir}")
+
+# Also add __init__.py files explicitly to ensure packages are recognized
+for pkg in APP_PACKAGES:
+    init_file = os.path.join(PACKAGES, pkg, "__init__.py")
+    if os.path.exists(init_file):
+        datas.append((init_file, pkg))
+        print(f"[build.spec] Added __init__.py for {pkg}")
 
 a = Analysis(
     ["shell/main.py"],
