@@ -364,6 +364,10 @@ class FirmwareGitRepoWidget(QWidget):
         self.log("Начинаем загрузку прошивок из GitHub Releases...")
         
         try:
+            self.log(f"[DEBUG] Количество репозиториев в менеджере: {len(self.release_manager.repositories)}")
+            for repo in self.release_manager.repositories:
+                self.log(f"[DEBUG] Репозиторий: {repo.get('name')} -> device: {repo.get('device')}")
+            
             firmware_list = self.release_manager.get_all_releases(self.log)
             cached = self.release_manager.get_cached_firmware()
             
@@ -378,6 +382,8 @@ class FirmwareGitRepoWidget(QWidget):
             repos_dict = {}
             for repo in self.release_manager.repositories:
                 repos_dict[repo.get('name')] = repo.get('device', 'Unknown')
+            
+            self.log(f"[DEBUG] repos_dict: {repos_dict}")
             
             self.devices = {}
             for fw in firmware_list:

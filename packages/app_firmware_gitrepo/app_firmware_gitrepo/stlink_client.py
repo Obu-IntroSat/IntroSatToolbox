@@ -17,29 +17,20 @@ class STLinkClient:
         self.device_info = {}
         self._connected = False
         
-        # Определяем путь к папке с бинарниками ST-Link
         self.stlink_bin_path = self._get_stlink_bin_path()
-        
-        # Проверяем доступность ST-Link (локально или в системе)
         self._stlink_available = self._check_stlink_available()
     
     def _get_stlink_bin_path(self) -> Optional[Path]:
-        """
-        Определяет путь к папке с бинарниками ST-Link.
-        Проверяет встроенную папку bin или системный PATH.
-        """
-        # 1. Папка bin рядом с исполняемым файлом (для собранного приложения)
+        """Определяет путь к папке с бинарниками ST-Link."""
         if getattr(sys, 'frozen', False):
             app_dir = Path(sys.executable).parent
             bin_path = app_dir / "bin"
             if bin_path.exists():
-                # Проверяем наличие st-info
                 st_info_path = bin_path / ("st-info.exe" if sys.platform == 'win32' else "st-info")
                 if st_info_path.exists():
                     print(f"[DEBUG] ST-Link бинарники найдены в: {bin_path}")
                     return bin_path
         
-        # 2. Папка bin в папке с приложением (для разработки)
         bin_path = Path(__file__).parent / "bin"
         if bin_path.exists():
             st_info_path = bin_path / ("st-info.exe" if sys.platform == 'win32' else "st-info")
@@ -47,7 +38,6 @@ class STLinkClient:
                 print(f"[DEBUG] ST-Link бинарники найдены в: {bin_path}")
                 return bin_path
         
-        # 3. Проверяем родительскую папку
         bin_path = Path(__file__).parent.parent / "bin"
         if bin_path.exists():
             st_info_path = bin_path / ("st-info.exe" if sys.platform == 'win32' else "st-info")
@@ -60,7 +50,6 @@ class STLinkClient:
     
     def _check_stlink_available(self) -> bool:
         """Проверяет, доступен ли ST-Link (локально или в системе)."""
-        # 1. Проверяем локальные бинарники
         if self.stlink_bin_path:
             try:
                 st_info_path = self.stlink_bin_path / ("st-info.exe" if sys.platform == 'win32' else "st-info")
@@ -77,7 +66,6 @@ class STLinkClient:
             except Exception:
                 pass
         
-        # 2. Проверяем системный PATH (fallback)
         try:
             result = subprocess.run(
                 ["st-info", "--version"],
@@ -101,7 +89,6 @@ class STLinkClient:
         
         cmd = []
         
-        # Если есть локальная папка, пробуем использовать локальный бинарник
         if self.stlink_bin_path:
             if sys.platform == 'win32':
                 cmd_path = self.stlink_bin_path / f"{command}.exe"
@@ -118,7 +105,6 @@ class STLinkClient:
                     check=check
                 )
         
-        # Если локальный бинарник не найден, используем системный
         cmd = args
         return subprocess.run(
             cmd,
@@ -192,12 +178,7 @@ class STLinkClient:
             return f"{bytes_val // 1024} KB"
     
     def connect(self) -> Tuple[bool, str]:
-        """
-        Подключается к устройству через ST-Link.
-        
-        Returns:
-            (success, message)
-        """
+        """Подключается к устройству через ST-Link."""
         if not self._stlink_available:
             return False, "ST-Link не найден. Установите st-link (https://github.com/stlink-org/stlink)"
         
@@ -231,7 +212,7 @@ class STLinkClient:
             return False, f"Ошибка подключения: {str(e)}"
     
     def _parse_st_info(self, output: str) -> Dict[str, str]:
-        """Парсит вывод st-info (устаревший, оставлен для совместимости)."""
+        """Парсит вывод st-info."""
         info = {
             "chip": "Unknown",
             "chipid": "Unknown",
@@ -258,15 +239,7 @@ class STLinkClient:
         return info
     
     def flash(self, firmware_path: str) -> Tuple[bool, str]:
-        """
-        Прошивает устройство.
-        
-        Args:
-            firmware_path: Путь к файлу прошивки
-            
-        Returns:
-            (success, message)
-        """
+        """Прошивает устройство."""
         if not self._connected:
             return False, "Устройство не подключено"
         
@@ -274,7 +247,6 @@ class STLinkClient:
             return False, f"Файл прошивки не найден: {firmware_path}"
         
         try:
-            # Используем локальные бинарники или системные через _run_st_command
             result = self._run_st_command(
                 ["st-flash", "write", firmware_path, "0x08000000"],
                 timeout=120,
@@ -284,7 +256,6 @@ class STLinkClient:
             if "error" in result.stdout.lower() or "failed" in result.stdout.lower():
                 return False, "Ошибка при прошивке"
             
-            # Сброс
             try:
                 self._run_st_command(
                     ["st-flash", "reset"],
@@ -311,12 +282,7 @@ class STLinkClient:
         return self.device_info
     
     def get_device_family(self) -> str:
-        """
-        Определяет семейство устройства по информации о чипе.
-        
-        Returns:
-            'STM32', 'ATmega' или 'Unknown'
-        """
+        """Определяет семейство устройства по информации о чипе."""
         descr = self.device_info.get('description', '').upper()
         chipid = self.device_info.get('chipid', '').upper()
         
