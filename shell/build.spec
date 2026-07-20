@@ -62,33 +62,10 @@ for dist in ALL_DISTRIBUTIONS:
 for pkg in ALL_PACKAGES:
     hiddenimports += collect_submodules(pkg)
 
-# === ADD RESOURCES ===
-resources_dir = os.path.join(SPEC_DIR, "..", "resources")
-binaries = []
-if os.path.exists(resources_dir):
-    for file in os.listdir(resources_dir):
-        full_path = os.path.join(resources_dir, file)
-        if os.path.isfile(full_path):
-            datas.append((full_path, "resources"))
-            print(f"[build.spec] Added resource: {file}")
-else:
-    print(f"[build.spec] Warning: resources directory not found at {resources_dir}")
-
-# === ADD ST-Link BINARIES ===
-stlink_bin_path = os.path.join(PACKAGES, "app_firmware_gitrepo", "app_firmware_gitrepo", "bin")
-if os.path.exists(stlink_bin_path):
-    for file in os.listdir(stlink_bin_path):
-        full_path = os.path.join(stlink_bin_path, file)
-        if os.path.isfile(full_path):
-            binaries.append((full_path, "bin"))
-            print(f"[build.spec] Added ST-Link binary: {file}")
-else:
-    print(f"[build.spec] Warning: ST-Link binaries not found at {stlink_bin_path}")
-
 a = Analysis(
     ["shell/main.py"],
     pathex=pathex,
-    binaries=binaries,
+    binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

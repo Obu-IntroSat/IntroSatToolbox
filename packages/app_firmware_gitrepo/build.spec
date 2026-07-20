@@ -5,45 +5,49 @@ import os
 from pathlib import Path
 import shutil
 
-SPEC_DIR = Path(os.getcwd())
+# Используем SPEC переменную PyInstaller для получения правильного пути
+SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
+PACKAGES_DIR = os.path.abspath(os.path.join(SPEC_DIR, ".."))
+CORE_DIR = os.path.join(PACKAGES_DIR, "core")
+SATCORE_DIR = os.path.join(CORE_DIR, "satcore")
+APP_DIR = os.path.join(PACKAGES_DIR, "app_firmware_gitrepo", "app_firmware_gitrepo")
+
 print(f"SPEC_DIR: {SPEC_DIR}")
-
-PACKAGES_DIR = SPEC_DIR / "packages"
-CORE_DIR = PACKAGES_DIR / "core"
-SATCORE_DIR = CORE_DIR / "satcore"
-APP_DIR = PACKAGES_DIR / "app_firmware_gitrepo" / "app_firmware_gitrepo"
-
 print(f"PACKAGES_DIR: {PACKAGES_DIR}")
 print(f"CORE_DIR: {CORE_DIR}")
 print(f"SATCORE_DIR: {SATCORE_DIR}")
 print(f"APP_DIR: {APP_DIR}")
 
 datas = []
-if SATCORE_DIR.exists():
-    for file in SATCORE_DIR.rglob('*.py'):
-        rel_path = file.relative_to(CORE_DIR.parent)
-        datas.append((str(file), str(rel_path.parent)))
-        print(f"added: {rel_path}")
+if os.path.exists(SATCORE_DIR):
+    for root, dirs, files in os.walk(SATCORE_DIR):
+        for file in files:
+            if file.endswith('.py'):
+                full_path = os.path.join(root, file)
+                rel_path = os.path.relpath(full_path, PACKAGES_DIR)
+                datas.append((full_path, os.path.dirname(rel_path)))
+                print(f"added: {rel_path}")
 
-config_file = APP_DIR.parent / "firmware_repositories.json"
-if config_file.exists():
-    datas.append((str(config_file), "."))
-    print(f"config added: {config_file.name}")
+config_file = os.path.join(APP_DIR, "..", "firmware_repositories.json")
+if os.path.exists(config_file):
+    datas.append((config_file, "."))
+    print(f"config added: {os.path.basename(config_file)}")
 
 bin_files = []
-STLINK_BIN_DIR = APP_DIR / "bin"
-if STLINK_BIN_DIR.exists():
-    for file in STLINK_BIN_DIR.iterdir():
-        if file.is_file():
-            bin_files.append((str(file), "bin"))
-            print(f"bin files added: {file.name}")
+STLINK_BIN_DIR = os.path.join(APP_DIR, "bin")
+if os.path.exists(STLINK_BIN_DIR):
+    for file in os.listdir(STLINK_BIN_DIR):
+        full_path = os.path.join(STLINK_BIN_DIR, file)
+        if os.path.isfile(full_path):
+            bin_files.append((full_path, "bin"))
+            print(f"bin files added: {file}")
 
 a = Analysis(
-    [str(APP_DIR / "__main__.py")],
+    [os.path.join(APP_DIR, "__main__.py")],
     pathex=[
-        str(PACKAGES_DIR),
-        str(CORE_DIR),
-        str(SPEC_DIR),
+        PACKAGES_DIR,
+        CORE_DIR,
+        SPEC_DIR,
     ],
     binaries=bin_files,
     datas=datas,
@@ -111,9 +115,10 @@ exe = EXE(
 dist_dir = Path('dist')
 dist_dir.mkdir(exist_ok=True)
 
-if STLINK_BIN_DIR.exists():
+if os.path.exists(STLINK_BIN_DIR):
     dest_bin_dir = dist_dir / 'bin'
     dest_bin_dir.mkdir(exist_ok=True)
-    for file in STLINK_BIN_DIR.iterdir():
-        if file.is_file():
-            shutil.copy2(file, dest_bin_dir / file.name)
+    for file in os.listdir(STLINK_BIN_DIR):
+        full_path = os.path.join(STLINK_BIN_DIR, file)
+        if os.path.isfile(full_path):
+            shutil.copy2(full_path, dest_bin_dir / file)
