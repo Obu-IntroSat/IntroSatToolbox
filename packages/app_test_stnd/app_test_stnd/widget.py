@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QLabel, QVBoxLayout, QHBoxLayout, QWidget,
@@ -17,7 +19,8 @@ from .test_controller import (
     execute_stand_version,
     execute_i2c_test,
     execute_spi_test,
-    execute_uart_test
+    execute_uart_test,
+    execute_scenario,   # <-- добавили импорт
 )
 
 BAUD_RATES = ["9600", "19200", "38400", "57600", "115200", "230400"]
@@ -110,7 +113,7 @@ class TemplateWidget(QWidget):
 
         left_layout.addWidget(conn_row)
 
-        # Ряд 2: Тестирование
+        # Ряд 2: Тестирование (динамические сценарии)
         test_row = QWidget()
         test_layout = QHBoxLayout(test_row)
         test_layout.setSpacing(15)
@@ -122,14 +125,8 @@ class TemplateWidget(QWidget):
         self.test_combo = QComboBox()
         self.test_combo.setMinimumWidth(180)
         self.test_combo.setMaximumWidth(180)
-        self.test_combo.addItems([
-            "Выберите тест...",
-            "ICT - LIS2MDL (I2C)",
-            "ICT - LSM6DS3 (I2C)",
-            "ICT - CC1101 (SPI)",
-            "UART тест",
-            "FCT - Полное тестирование"
-        ])
+        # Заполняем динамически
+        self.scan_scenarios()   # <-- вызов сканирования
         test_layout.addWidget(self.test_combo)
 
         test_btn = QPushButton("Проверить")
@@ -249,6 +246,30 @@ class TemplateWidget(QWidget):
         # Очищаем информационные поля
         self.clear_info_labels()
 
+    # === НОВЫЙ МЕТОД: сканирование сценариев ===
+    def scan_scenarios(self):
+        """Сканирует папку ../scenarios/ и заполняет выпадающий список тестов."""
+        self.test_combo.clear()
+        self.test_combo.addItem("Выберите тест...")
+        self.scenario_map = {}  # словарь: отображаемое имя -> путь к файлу
+
+        scenarios_dir = Path(__file__).parent / "../scenarios/"
+        if not scenarios_dir.exists():
+            # Если папка отсутствует, добавим только FCT
+            self.test_combo.addItem("FCT - Полное тестирование")
+            return
+
+        # Собираем все .yaml файлы
+        yaml_files = sorted(scenarios_dir.glob("*.yaml"))
+        for yaml_file in yaml_files:
+            # Имя файла без расширения будет отображаться в списке
+            display_name = yaml_file.stem
+            self.test_combo.addItem(display_name)
+            self.scenario_map[display_name] = str(yaml_file)
+
+        # Добавляем специальный пункт для полного тестирования
+        self.test_combo.addItem("FCT - Полное тестирование")
+
     def clear_info_labels(self):
         """Очищает информационные метки."""
         self.port_info_label.setText("Открыт порт: ")
@@ -359,47 +380,44 @@ class TemplateWidget(QWidget):
         self.output_text.append("Используйте кнопку 'Подключить стенд' для получения информации.")
 
     def on_run_test(self):
-        """Запуск выбранного теста."""
+        """Запуск выбранного теста (сценария или FCT)."""
         controller = self.get_controller()
         if controller is None:
             return
 
-        test_name = self.test_combo.currentText()
+        selected = self.test_combo.currentText()
 
-        if test_name == "Выберите тест...":
+        if selected == "Выберите тест...":
             self.output_text.clear()
             self.output_text.append("ОШИБКА: Не выбран тест!")
             self.output_text.append("")
-            self.output_text.append("Доступные тесты:")
-            self.output_text.append("  • ICT - LIS2MDL (I2C)")
-            self.output_text.append("  • ICT - LSM6DS3 (I2C)")
-            self.output_text.append("  • ICT - CC1101 (SPI)")
-            self.output_text.append("  • ICT - тест UART")
+            self.output_text.append("Доступные тесты (сценарии из папки scenarios):")
+            for name in self.scenario_map.keys():
+                self.output_text.append(f"  • {name}")
             self.output_text.append("  • FCT - Полное тестирование")
             return
 
         self.output_text.clear()
-        self.output_text.append(f"Запуск теста: {test_name}")
+        self.output_text.append(f"Запуск теста: {selected}")
         self.output_text.append("")
         self.output_text.append("Выполнение теста...")
         self.output_text.append("")
 
-        # Выполняем соответствующий тест
-        if "LIS2MDL" in test_name:
-            result = execute_i2c_test(controller, "LIS2MDL", 0x1E)
-        elif "LSM6DS3" in test_name:
-            result = execute_i2c_test(controller, "LSM6DS3", 0x6A)
-        elif "CC1101" in test_name:
-            result = execute_spi_test(controller)
-        elif "UART тест" in test_name:
-            result = execute_uart_test(controller)
-        else:  # FCT - Полное тестирование
+        # Проверяем, не является ли выбор специальным пунктом
+        if selected == "FCT - Полное тестирование":
             result = self.run_full_test()
+        else:
+            # Ищем путь к сценарию
+            scenario_path = self.scenario_map.get(selected)
+            if scenario_path is None:
+                result = f"Ошибка: Сценарий '{selected}' не найден."
+            else:
+                result = execute_scenario(controller, scenario_path)
 
         self.output_text.append(result)
 
     def run_full_test(self) -> str:
-        """Полное функциональное тестирование."""
+        """Полное функциональное тестирование (FCT)."""
         controller = self.get_controller()
         if controller is None:
             return "Ошибка: Нет доступных COM-портов!"
@@ -459,38 +477,57 @@ class TemplateWidget(QWidget):
         else:
             failed_tests += 1
 
-        # Тест 4: I2C тест LIS2MDL
-        total_tests += 1
-        lines.append(f"Тест {total_tests}: LIS2MDL (I2C)")
-        result = execute_i2c_test(controller, "LIS2MDL", 0x1E)
-        lines.append(result)
-        lines.append("")
-        if "Ошибка" not in result:
-            passed_tests += 1
-        else:
-            failed_tests += 1
+        # Тест 4: I2C тест LIS2MDL (если сценарий есть)
+        scenario_lis2mdl = self.scenario_map.get("test_lis2mdl")
+        if scenario_lis2mdl:
+            total_tests += 1
+            lines.append(f"Тест {total_tests}: LIS2MDL (I2C)")
+            result = execute_scenario(controller, scenario_lis2mdl)
+            lines.append(result)
+            lines.append("")
+            if "Ошибка" not in result:
+                passed_tests += 1
+            else:
+                failed_tests += 1
 
-        # Тест 5: I2C тест LSM6DS3
-        total_tests += 1
-        lines.append(f"Тест {total_tests}: LSM6DS3 (I2C)")
-        result = execute_i2c_test(controller, "LSM6DS3", 0x6A)
-        lines.append(result)
-        lines.append("")
-        if "Ошибка" not in result:
-            passed_tests += 1
-        else:
-            failed_tests += 1
+        # Тест 5: I2C тест LSM6DS3 (если сценарий есть)
+        scenario_lsm6ds3 = self.scenario_map.get("test_lsm6ds3")
+        if scenario_lsm6ds3:
+            total_tests += 1
+            lines.append(f"Тест {total_tests}: LSM6DS3 (I2C)")
+            result = execute_scenario(controller, scenario_lsm6ds3)
+            lines.append(result)
+            lines.append("")
+            if "Ошибка" not in result:
+                passed_tests += 1
+            else:
+                failed_tests += 1
 
-        # Тест 6: SPI тест CC1101
-        total_tests += 1
-        lines.append(f"Тест {total_tests}: CC1101 (SPI)")
-        result = execute_spi_test(controller)
-        lines.append(result)
-        lines.append("")
-        if "Ошибка" not in result:
-            passed_tests += 1
-        else:
-            failed_tests += 1
+        # Тест 6: SPI тест CC1101 (если сценарий есть)
+        scenario_cc1101 = self.scenario_map.get("test_cc1101")
+        if scenario_cc1101:
+            total_tests += 1
+            lines.append(f"Тест {total_tests}: CC1101 (SPI)")
+            result = execute_scenario(controller, scenario_cc1101)
+            lines.append(result)
+            lines.append("")
+            if "Ошибка" not in result:
+                passed_tests += 1
+            else:
+                failed_tests += 1
+
+        # Тест 7: UART тест (если сценарий есть)
+        scenario_uart = self.scenario_map.get("test_uart")
+        if scenario_uart:
+            total_tests += 1
+            lines.append(f"Тест {total_tests}: UART тест")
+            result = execute_scenario(controller, scenario_uart)
+            lines.append(result)
+            lines.append("")
+            if "Ошибка" not in result:
+                passed_tests += 1
+            else:
+                failed_tests += 1
 
         # Итоговый отчет
         lines.append("=" * 50)
