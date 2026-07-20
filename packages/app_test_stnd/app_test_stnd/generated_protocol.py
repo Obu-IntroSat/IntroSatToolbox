@@ -997,7 +997,7 @@ class GenericResp:
     Код ответа: 250
     Поля:
       - status (uint8) – 0 - OK, 1 - ERROR
-      - error_code (uint8) – Код ошибки (если status=1)
+      - error_code (uint32) – Код ошибки (если status=1)
     """
     def __init__(self, data: bytes):
         """Распаковывает данные ответа."""
@@ -1008,12 +1008,12 @@ class GenericResp:
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
         }['uint8'])
-        self.error_code = _unpack_value(data[offset:], 'uint8')
+        self.error_code = _unpack_value(data[offset:], 'uint32')
         offset += struct.calcsize('<' + {
             'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
             'int8': 'b', 'int16': 'h', 'int32': 'i',
             'float32': 'f', 'bool': '?'
-        }['uint8'])
+        }['uint32'])
 
 
 # ---------- Фабрика для разбора ответов ----------

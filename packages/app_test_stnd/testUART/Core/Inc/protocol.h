@@ -420,7 +420,7 @@ typedef struct {
  */
 typedef struct {
     uint8_t status;
-    uint8_t error_code;
+    uint32_t error_code;
 } ResponseGenericResp;
 
 

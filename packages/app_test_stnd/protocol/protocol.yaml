@@ -350,7 +350,7 @@ commands:
     type: response
     fields:
       - { name: status, type: uint8, description: "0 - OK, 1 - ERROR" }
-      - { name: error_code, type: uint8, description: "Код ошибки (если status=1)" }
+      - { name: error_code, type: uint32, description: "Код ошибки (если status=1)" }
     description: "Общий ответ для команд без данных (инициализации, установка, запись и т.д.)"
 
 # ========== КОДЫ ОШИБОК ==========

@@ -740,8 +740,8 @@ uint8_t serialize_ResponseGenericResp(const ResponseGenericResp* resp, uint8_t* 
     uint8_t* ptr = buf;
     pack_uint8(resp->status, ptr);
     ptr += 1;
-    pack_uint8(resp->error_code, ptr);
-    ptr += 1;
+    pack_uint32(resp->error_code, ptr);
+    ptr += 4;
     return ptr - buf;
 }
 
@@ -749,8 +749,8 @@ void deserialize_ResponseGenericResp(const uint8_t* buf, ResponseGenericResp* re
     const uint8_t* ptr = buf;
     resp->status = unpack_uint8(ptr);
     ptr += 1;
-    resp->error_code = unpack_uint8(ptr);
-    ptr += 1;
+    resp->error_code = unpack_uint32(ptr);
+    ptr += 4;
     (void)ptr;
 }
 
