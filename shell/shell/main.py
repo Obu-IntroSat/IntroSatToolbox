@@ -13,6 +13,12 @@ from PySide6.QtWidgets import (
 
 from satcore import discover_plugins
 
+def setup_paths():
+    if getattr(sys, 'frozen', False):
+        app_dir = Path(sys.executable).parent
+        resources_path = app_dir / "resources"
+        if resources_path.exists():
+            print(f"[DEBUG] Resources found at: {resources_path}")
 
 class MainWindow(QMainWindow):
     def __init__(self):
