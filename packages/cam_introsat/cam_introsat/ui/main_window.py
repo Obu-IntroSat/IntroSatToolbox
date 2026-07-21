@@ -647,3 +647,14 @@ class CameraWidget(QWidget):
             if self.image_label._zoom < self.image_label._fit_zoom:
                 self.image_label._zoom = self.image_label._fit_zoom
                 self.image_label.update_display()
+
+    def closeEvent(self, event):
+        """Обработка закрытия окна"""
+        self.add_log("⏹ Закрытие приложения...")
+        if self.worker:
+            self.worker.stop()
+            if self.worker.isRunning():
+                self.worker.wait(3000)
+            self.worker.disconnect()
+            self.worker = None
+        event.accept()

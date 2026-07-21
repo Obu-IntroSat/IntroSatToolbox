@@ -3,7 +3,7 @@
 from __future__ import annotations
 import struct
 import time
-from threading import Event
+from threading import Event, Lock
 from typing import Optional
 import serial
 
@@ -31,6 +31,7 @@ class CameraWorker(QThread):
         self.is_busy = False
         self.current_command = None
         self.capture_in_progress = False
+        self._lock = Lock()
 
         self._chunk_buffer = bytearray(config.chunk_packet_size)
         self._chunk_struct = struct.Struct(config.chunk_format)
@@ -84,15 +85,20 @@ class CameraWorker(QThread):
             return False
 
     def disconnect(self):
-        if self.ser and self.ser.is_open:
-            self.ser.close()
-        self.ser = None
+        with self._lock:
+            if self.ser and self.ser.is_open:
+                try:
+                    self.ser.close()
+                except:
+                    pass
+            self.ser = None
         self.log.emit("⏹ Отключено")
 
     def _write(self, data: bytes):
-        if self.ser and self.ser.is_open:
-            self.ser.write(data)
-            self.ser.flush()
+        with self._lock:
+            if self.ser and self.ser.is_open:
+                self.ser.write(data)
+                self.ser.flush()
 
     def _write_command(self, cmd: str):
         cmd_bytes = self.config.get_command_bytes(cmd)

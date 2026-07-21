@@ -124,8 +124,8 @@ class CreateConfigDialog(QDialog):
     def accept(self):
         try:
             config = self.get_config()
-        except ValueError:
-            QMessageBox.warning(self, "Ошибка", "Проверьте числовые поля конфигурации.")
+        except ValueError as e:
+            QMessageBox.warning(self, "Ошибка", f"Проверьте числовые поля конфигурации:\n{str(e)}")
             return
 
         if not config.name:
