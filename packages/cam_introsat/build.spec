@@ -1,16 +1,13 @@
-# PyInstaller spec for the cam_introsat application.
-# Build with:  pyinstaller build.spec
-
 from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
 a = Analysis(
     ["cam_introsat/__main__.py"],
-    pathex=['.', '../core'],                # чтобы PyInstaller нашёл satcore при анализе
+    pathex=['.', '../core'],                # путь к satcore
     binaries=[],
     datas=[],
-    hiddenimports=collect_submodules('cam_introsat') + collect_submodules('satcore'),  # добавили satcore
+    hiddenimports=collect_submodules('cam_introsat') + collect_submodules('satcore'),  # включаем satcore
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
