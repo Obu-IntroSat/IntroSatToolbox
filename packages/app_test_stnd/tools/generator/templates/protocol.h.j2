@@ -1,0 +1,77 @@
+/**
+ * Автоматически сгенерированный заголовок протокола.
+ * Не редактируйте вручную.
+ */
+#ifndef PROTOCOL_H
+#define PROTOCOL_H
+
+#include <stdint.h>
+#include <stdbool.h>
+
+{% for cmd in commands %}
+#define {{ cmd.name.upper() }}_CODE {{ cmd.code }}
+{% endfor %}
+
+{% if error_codes %}
+// ---------- Коды ошибок ----------
+{% for name, code in error_codes.items() %}
+#define {{ name }} {{ code }}
+{% endfor %}
+{% endif %}
+
+{% for cmd in commands if cmd.type == 'request' %}
+/**
+ * {{ cmd.description }}
+ * Код: {{ cmd.code }}
+ */
+typedef struct {
+    {% for field in cmd.fields %}
+    {% if field.type == 'bool' %}
+    bool {{ field.name }};
+    {% elif field.type.startswith('uint8[') %}
+    uint8_t {{ field.name }}[{{ field.type|replace('uint8[', '')|replace(']', '') }}];
+    {% else %}
+    {{ field.type }}_t {{ field.name }};
+    {% endif %}
+    {% endfor %}
+} Request{{ cmd.name }};
+
+{% endfor %}
+
+{% for cmd in commands if cmd.type == 'response' %}
+/**
+ * {{ cmd.description }}
+ * Код: {{ cmd.code }}
+ */
+typedef struct {
+    {% for field in cmd.fields %}
+    {% if field.type == 'bool' %}
+    bool {{ field.name }};
+    {% elif field.type.startswith('uint8[') %}
+    uint8_t {{ field.name }}[{{ field.type|replace('uint8[', '')|replace(']', '') }}];
+    {% else %}
+    {{ field.type }}_t {{ field.name }};
+    {% endif %}
+    {% endfor %}
+} Response{{ cmd.name }};
+
+{% endfor %}
+
+// Специализированные функции сериализации/десериализации
+{% for cmd in commands if cmd.type == 'request' %}
+uint8_t serialize_Request{{ cmd.name }}(const Request{{ cmd.name }}* req, uint8_t* buf);
+void deserialize_Request{{ cmd.name }}(const uint8_t* buf, Request{{ cmd.name }}* req);
+{% endfor %}
+
+{% for cmd in commands if cmd.type == 'response' %}
+uint8_t serialize_Response{{ cmd.name }}(const Response{{ cmd.name }}* resp, uint8_t* buf);
+void deserialize_Response{{ cmd.name }}(const uint8_t* buf, Response{{ cmd.name }}* resp);
+{% endfor %}
+
+// Общие функции по коду команды
+uint8_t serialize_request(uint8_t cmd_code, const void* req, uint8_t* buf);
+void deserialize_request(uint8_t cmd_code, const uint8_t* buf, void* req);
+uint8_t serialize_response(uint8_t cmd_code, const void* resp, uint8_t* buf);
+void deserialize_response(uint8_t cmd_code, const uint8_t* buf, void* resp);
+
+#endif // PROTOCOL_H

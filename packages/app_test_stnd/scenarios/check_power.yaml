@@ -1,0 +1,6 @@
+name: "Проверка включения устройства"
+description: "Запрос статуса питания"
+steps:
+  - description: "Запрос статуса (включено ли устройство)"
+    command: GetStatus
+    params: {}

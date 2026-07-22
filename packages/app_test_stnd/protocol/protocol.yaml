@@ -1,0 +1,407 @@
+# Протокол общения ПК ↔ Тестовый стенд
+# Диапазоны кодов:
+#   0-99    – системные запросы
+#   100-199 – команды периферии
+#   200-255 – ответы
+
+# Коды ошибок (используются в поле error_code ответов):
+#   100 – неизвестная команда (КОП не найден)
+#   200 – ошибка инициализации UART
+#   210 – неверный номер UART
+#   220 – неверное количество стоп-битов
+#   230 – неверный режим чётности
+#   240 – неверная длина слова
+#   (позже будут добавлены коды для SPI и других интерфейсов)
+
+version:
+  1.0  # Здесь надо дописать что-то так, как у Лёши
+
+commands:
+  # ========== СИСТЕМНЫЕ ЗАПРОСЫ (0-99) ==========
+  - name: GetVersion
+    code: 0
+    type: request
+    fields: []
+    description: "Запрос версии прошивки стенда"
+
+  - name: GetStatus
+    code: 1
+    type: request
+    fields: []
+    description: "Запрос статуса (включено/выключено тестируемое устройство)"
+
+  - name: Reset
+    code: 2
+    type: request
+    fields: []
+    description: "Перезагрузка стенда"
+
+  # ========== ПЕРИФЕРИЙНЫЕ КОМАНДЫ (100-199) ==========
+  # ---- GPIO ----
+  - name: GpioInitOutput
+    code: 100
+    type: request
+    fields:
+      - { name: pin, type: uint8, description: "Номер пина (1-40)" }
+      - { name: initial_state, type: bool, description: "Начальное состояние (0/1)" }
+      - { name: open_drain, type: bool, description: "0 - push-pull, 1 - open-drain" }
+    description: "Инициализация пина как output"
+
+  - name: GpioInitInput
+    code: 101
+    type: request
+    fields:
+      - { name: pin, type: uint8 }
+      - { name: pull, type: uint8, description: "0 - no pull, 1 - pull-up, 2 - pull-down" }
+    description: "Инициализация пина как input"
+
+  - name: GpioSet
+    code: 102
+    type: request
+    fields:
+      - { name: pin, type: uint8 }
+      - { name: value, type: bool }
+    description: "Установка состояния пина"
+
+  - name: GpioRead
+    code: 103
+    type: request
+    fields:
+      - { name: pin, type: uint8 }
+    description: "Чтение состояния пина"
+
+  - name: GpioDeinit
+    code: 104
+    type: request
+    fields:
+      - { name: pin, type: uint8 }
+    description: "Деинициализация пина (возврат в состояние по умолчанию)"
+
+  # ---- АЦП ----
+  - name: AdcRead
+    code: 105
+    type: request
+    fields:
+      - { name: channel, type: uint8, description: "Номер канала АЦП" }
+    description: "Чтение напряжения на канале АЦП"
+
+  # ---- EEPROM оснастки ----
+  - name: EepromRead
+    code: 106
+    type: request
+    fields:
+      - { name: address, type: uint16, description: "Адрес в EEPROM" }
+      - { name: len, type: uint8, description: "Количество байт для чтения (макс 64)" }
+    description: "Чтение данных из EEPROM оснастки"
+
+  # ---- I2C ----
+  - name: I2cProbe
+    code: 107
+    type: request
+    fields:
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4" }
+      - { name: address, type: uint16, description: "7-битный адрес устройства" }
+    description: "Проверка наличия устройства на шине I2C"
+
+  - name: I2cReadRegister
+    code: 108
+    type: request
+    fields:
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4" }
+      - { name: address, type: uint16 }
+      - { name: reg, type: uint8, description: "Адрес регистра" }
+      - { name: len, type: uint8, description: "Количество байт для чтения (макс 8)" }
+    description: "Чтение данных из регистра устройства I2C"
+
+  - name: I2cWriteRegister
+    code: 109
+    type: request
+    fields:
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4" }
+      - { name: address, type: uint16 }
+      - { name: reg, type: uint8 }
+      - { name: data_len, type: uint8, description: "Длина данных (макс 8)" }
+      - { name: data, type: "uint8[8]", description: "Данные для записи" }
+    description: "Запись данных в регистр I2C"
+
+  - name: I2cWrite
+    code: 110
+    type: request
+    fields:
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4" }
+      - { name: address, type: uint16 }
+      - { name: data_len, type: uint8, description: "Длина данных (макс 64)" }
+      - { name: data, type: "uint8[64]", description: "Данные для отправки" }
+    description: "Отправка данных на устройство I2C без регистра"
+
+  - name: I2cRead
+    code: 111
+    type: request
+    fields:
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4" }
+      - { name: address, type: uint16 }
+      - { name: len, type: uint8, description: "Количество байт для чтения (макс 64)" }
+    description: "Чтение данных с устройства I2C"
+
+  # ---- SPI ----
+  - name: SpiSend
+    code: 112
+    type: request
+    fields:
+      - { name: spi_num, type: uint8, description: "Номер SPI (1,2...)" }
+      - { name: data_len, type: uint8, description: "Длина данных (макс 64)" }
+      - { name: data, type: "uint8[64]", description: "Данные для отправки" }
+    description: "Отправка данных по SPI"
+
+  - name: SpiReceive
+    code: 113
+    type: request
+    fields:
+      - { name: spi_num, type: uint8 }
+      - { name: len, type: uint8, description: "Количество байт для приема (макс 64)" }
+    description: "Прием данных по SPI (с отправкой dummy байт)"
+
+  - name: SpiExchange
+    code: 114
+    type: request
+    fields:
+      - { name: spi_num, type: uint8 }
+      - { name: tx_len, type: uint8, description: "Длина отправляемых данных (макс 64)" }
+      - { name: tx_data, type: "uint8[64]", description: "Данные для отправки" }
+    description: "Полнодуплексный обмен по SPI (отправка и прием одновременно)"
+
+  # ---- UART ----
+  - name: UartSend
+    code: 115
+    type: request
+    fields:
+      - { name: uart_num, type: uint8, description: "Номер UART (1,2...)" }
+      - { name: data_len, type: uint8, description: "Длина данных (макс 64)" }
+      - { name: data, type: "uint8[64]", description: "Данные для отправки" }
+    description: "Отправка данных по UART"
+
+  - name: UartReceive
+    code: 116
+    type: request
+    fields:
+      - { name: uart_num, type: uint8 }
+      - { name: timeout_ms, type: uint16, description: "Таймаут ожидания в миллисекундах" }
+      - { name: max_len, type: uint8, description: "Максимальное количество байт для приема (макс 64)" }
+    description: "Ожидание и прием данных по UART с таймаутом"
+
+  # ---- Инициализация/деинициализация модулей ----
+  - name: InitI2c
+    code: 120
+    type: request
+    fields:
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4" }
+      - { name: speed, type: uint32, description: "Частота в Гц" }
+      - { name: addressing_mode, type: uint8, description: "0 - 7-битная адресация, 1 - 10-битная" }
+    description: "Инициализация модуля I2C с выбором интерфейса и режима адресации"
+
+  - name: DeinitI2c
+    code: 121
+    type: request
+    fields:
+      - { name: i2c_interface, type: uint8, description: "Выбор интерфейса: 1 - PB6/PB7, 3 - PA8/PB4" }
+    description: "Деинициализация модуля I2C"
+
+  - name: InitSpi
+    code: 122
+    type: request
+    fields:
+      - { name: spi_num, type: uint8, description: "Номер SPI (1,2...)" }
+      - { name: prescaler, type: uint8, description: "Делитель тактовой частоты SPI: 2,4,8,16,32,64,128,256" }
+      - { name: mode, type: uint8, description: "Режим SPI (0-3)" }
+      - { name: bit_order, type: uint8, description: "0 - MSB first, 1 - LSB first" }
+    description: "Инициализация модуля SPI с указанием делителя частоты"
+
+  - name: DeinitSpi
+    code: 123
+    type: request
+    fields:
+      - { name: spi_num, type: uint8 }
+    description: "Деинициализация модуля SPI"
+
+  - name: InitUart
+    code: 124
+    type: request
+    fields:
+      - { name: uart_num, type: uint8 }
+      - { name: baudrate, type: uint32, description: "Скорость в бод" }
+      - { name: parity, type: uint8, description: "0 - none, 1 - even, 2 - odd" }
+      - { name: stop_bits, type: uint8, description: "1 или 2" }
+      - { name: data_bits, type: uint8, description: "5-8" }
+    description: "Инициализация модуля UART"
+
+  - name: DeinitUart
+    code: 125
+    type: request
+    fields:
+      - { name: uart_num, type: uint8 }
+    description: "Деинициализация модуля UART"
+
+  # ========== ОТВЕТЫ (200-255) ==========
+  - name: VersionInfoResp
+    code: 200
+    type: response
+    fields:
+      - { name: major, type: uint8 }
+      - { name: minor, type: uint8 }
+      - { name: patch, type: uint8 }
+    description: "Ответ на GetVersion"
+
+  - name: StatusResp
+    code: 201
+    type: response
+    fields:
+      - { name: powered, type: bool, description: "Включено ли тестируемое устройство" }
+    description: "Ответ на GetStatus"
+
+  - name: GpioReadResp
+    code: 204
+    type: response
+    fields:
+      - { name: status, type: uint8, description: "0 - OK, 1 - ERROR" }
+      - { name: error_code, type: uint32 }
+      - { name: value, type: bool, description: "Состояние пина" }
+    description: "Ответ на GpioRead"
+
+  - name: AdcReadResp
+    code: 205
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: voltage_mv, type: uint16, description: "Напряжение в милливольтах" }
+    description: "Ответ на AdcRead"
+
+  - name: EepromReadResp
+    code: 206
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: data_len, type: uint8, description: "Реальная длина данных" }
+      - { name: data, type: "uint8[64]", description: "Прочитанные данные" }
+    description: "Ответ на EepromRead"
+
+  - name: I2cProbeResp
+    code: 207
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: present, type: bool, description: "Устройство обнаружено" }
+    description: "Ответ на I2cProbe"
+
+  - name: I2cReadRegisterResp
+    code: 208
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: data_len, type: uint8 }
+      - { name: data, type: "uint8[8]", description: "Прочитанные данные регистра" }
+    description: "Ответ на I2cReadRegister"
+
+  - name: I2cReadResp
+    code: 209
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: data_len, type: uint8 }
+      - { name: data, type: "uint8[64]", description: "Прочитанные данные" }
+    description: "Ответ на I2cRead"
+
+  - name: SpiReceiveResp
+    code: 210
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: data_len, type: uint8 }
+      - { name: data, type: "uint8[64]", description: "Полученные данные" }
+    description: "Ответ на SpiReceive"
+
+  - name: SpiExchangeResp
+    code: 211
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: rx_len, type: uint8 }
+      - { name: rx_data, type: "uint8[64]", description: "Полученные данные" }
+    description: "Ответ на SpiExchange"
+
+  - name: UartReceiveResp
+    code: 212
+    type: response
+    fields:
+      - { name: status, type: uint8 }
+      - { name: error_code, type: uint32 }
+      - { name: data_len, type: uint8 }
+      - { name: data, type: "uint8[64]", description: "Принятые данные" }
+    description: "Ответ на UartReceive"
+
+  - name: GenericResp
+    code: 250
+    type: response
+    fields:
+      - { name: status, type: uint8, description: "0 - OK, 1 - ERROR" }
+      - { name: error_code, type: uint32, description: "Код ошибки (если status=1)" }
+    description: "Общий ответ для команд без данных (инициализации, установка, запись и т.д.)"
+
+# ========== КОДЫ ОШИБОК ==========
+error_codes:
+  # Общие ошибки
+  WRONG_OPCODE: 100
+
+  # UART
+  UART_INIT_FAIL: 200
+  UART_INVALID_NUM: 210
+  UART_INVALID_STOP_BITS: 220
+  UART_INVALID_PARITY: 230
+  UART_INVALID_DATA_BITS: 240
+
+  # I2C
+  I2C_INIT_FAIL: 300
+  I2C_INVALID_NUM: 310
+  I2C_INVALID_ADDRESSING: 320
+  I2C_INVALID_LEN: 330
+
+  # SPI
+  SPI_INIT_FAIL: 400
+  SPI_INVALID_MODE: 410
+  SPI_INVALID_BIT_ORDER: 420
+  SPI_INVALID_PRESCALER: 430
+  SPI_INVALID_NUM: 440
+
+  # GPIO
+  GPIO_INVALID_PIN: 600
+  GPIO_INVALID_PULL: 610
+
+  # ADC
+  ADC_INVALID_CHANNEL: 700
+
+# i2c:
+# 0 - No error
+# 1 - BERR error
+# 2 - ARLO error
+# 4 - AF error
+# 8 - OVR error
+# 16 - DMA transfer error
+# 32 - Timeout Error
+# 64 - Size Management error
+# 128 - DMA Parametr Error
+# 512 - Wrong start Error
+# spi:
+# 0 - No error
+# 1 - MODF error
+# 2 - CRC error
+# 4 - OVR error
+# 8 - FRE error
+# 16 - DMA transfer error
+# 32 - Error on RXNE/TXE/BSY Flag
+# 64 - Error during SPI Abort procedure

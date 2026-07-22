@@ -1,0 +1,157 @@
+"""
+Автоматически сгенерированный модуль протокола.
+Не редактируйте вручную – изменения будут потеряны при перегенерации.
+"""
+import struct
+from typing import Dict, Any, Optional
+
+# ---------- Коды команд ----------
+{% for cmd in commands %}
+{{ cmd.name.upper() }}_CODE = {{ cmd.code }}
+{% endfor %}
+
+# ---------- Коды ошибок ----------
+{% if error_codes %}
+{% for name, code in error_codes.items() %}
+{{ name }} = {{ code }}
+{% endfor %}
+{% endif %}
+
+# ---------- Вспомогательные функции ----------
+def _pack_value(value, field_type):
+    """Упаковка одного значения в байты (для простых типов)."""
+    if field_type == 'uint8':
+        return struct.pack('<B', value)
+    elif field_type == 'uint16':
+        return struct.pack('<H', value)
+    elif field_type == 'uint32':
+        return struct.pack('<I', value)
+    elif field_type == 'int8':
+        return struct.pack('<b', value)
+    elif field_type == 'int16':
+        return struct.pack('<h', value)
+    elif field_type == 'int32':
+        return struct.pack('<i', value)
+    elif field_type == 'float32':
+        return struct.pack('<f', value)
+    elif field_type == 'bool':
+        return struct.pack('<?', value)
+    else:
+        raise ValueError(f"Unsupported type: {field_type}")
+
+def _unpack_value(data, field_type):
+    """Распаковка из байтов (для простых типов)."""
+    if field_type == 'uint8':
+        return struct.unpack('<B', data[:1])[0]
+    elif field_type == 'uint16':
+        return struct.unpack('<H', data[:2])[0]
+    elif field_type == 'uint32':
+        return struct.unpack('<I', data[:4])[0]
+    elif field_type == 'int8':
+        return struct.unpack('<b', data[:1])[0]
+    elif field_type == 'int16':
+        return struct.unpack('<h', data[:2])[0]
+    elif field_type == 'int32':
+        return struct.unpack('<i', data[:4])[0]
+    elif field_type == 'float32':
+        return struct.unpack('<f', data[:4])[0]
+    elif field_type == 'bool':
+        return struct.unpack('<?', data[:1])[0]
+    else:
+        raise ValueError(f"Unsupported type: {field_type}")
+
+# ---------- Классы запросов ----------
+{% for cmd in commands if cmd.type == 'request' %}
+class {{ cmd.name }}:
+    """
+    {{ cmd.description }}
+    Код команды: {{ cmd.code }}
+    {% if cmd.fields %}
+    Поля:
+    {% for field in cmd.fields %}
+      - {{ field.name }} ({{ field.type }}) – {{ field.description or '' }}
+    {% endfor %}
+    {% else %}
+    (без данных)
+    {% endif %}
+    """
+    def __init__(self{% if cmd.fields %}, {% for field in cmd.fields %}{{ field.name }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}):
+        {% if cmd.fields %}
+        {% for field in cmd.fields %}
+        self.{{ field.name }} = {{ field.name }}
+        {% endfor %}
+        {% else %}
+        pass
+        {% endif %}
+
+    def to_bytes(self) -> bytes:
+        """Упаковывает запрос в байтовую последовательность (без заголовка)."""
+        result = b''
+        {% for field in cmd.fields %}
+        {% if field.type.startswith('uint8[') %}
+        # Массив фиксированной длины
+        arr_len = {{ field.type|replace('uint8[', '')|replace(']', '')|int }}
+        if len(self.{{ field.name }}) != arr_len:
+            raise ValueError(f"Array {{ field.name }} must have length {arr_len}")
+        result += struct.pack('<{}B'.format(arr_len), *self.{{ field.name }})
+        {% else %}
+        result += _pack_value(self.{{ field.name }}, '{{ field.type }}')
+        {% endif %}
+        {% endfor %}
+        return result
+
+{% endfor %}
+
+# ---------- Классы ответов ----------
+{% for cmd in commands if cmd.type == 'response' %}
+class {{ cmd.name }}:
+    """
+    {{ cmd.description }}
+    Код ответа: {{ cmd.code }}
+    {% if cmd.fields %}
+    Поля:
+    {% for field in cmd.fields %}
+      - {{ field.name }} ({{ field.type }}) – {{ field.description or '' }}
+    {% endfor %}
+    {% else %}
+    (без данных)
+    {% endif %}
+    """
+    def __init__(self, data: bytes):
+        """Распаковывает данные ответа."""
+        offset = 0
+        {% if cmd.fields %}
+        {% for field in cmd.fields %}
+        {% if field.type.startswith('uint8[') %}
+        arr_len = {{ field.type|replace('uint8[', '')|replace(']', '')|int }}
+        self.{{ field.name }} = list(struct.unpack('<{}B'.format(arr_len), data[offset:offset+arr_len]))
+        offset += arr_len
+        {% else %}
+        self.{{ field.name }} = _unpack_value(data[offset:], '{{ field.type }}')
+        offset += struct.calcsize('<' + {
+            'uint8': 'B', 'uint16': 'H', 'uint32': 'I',
+            'int8': 'b', 'int16': 'h', 'int32': 'i',
+            'float32': 'f', 'bool': '?'
+        }['{{ field.type }}'])
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        # Нет полей – ничего не делаем
+        pass
+        {% endif %}
+
+{% endfor %}
+
+# ---------- Фабрика для разбора ответов ----------
+RESPONSE_CLASSES: Dict[int, Any] = {
+{% for cmd in commands if cmd.type == 'response' %}
+    {{ cmd.code }}: {{ cmd.name }},
+{% endfor %}
+}
+
+def parse_response(code: int, data: bytes):
+    """Возвращает объект ответа по его коду."""
+    cls = RESPONSE_CLASSES.get(code)
+    if cls is None:
+        raise ValueError(f"Неизвестный код ответа: {code}")
+    return cls(data)

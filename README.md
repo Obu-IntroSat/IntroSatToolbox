@@ -10,6 +10,7 @@ launcher window with one tab per app.
 | ------------------------ | -------------- | ----------------------------------------------- |
 | `packages/app_comms`     | Взаимодействие | Talk to a device over a COM (serial) port       |
 | `packages/app_firmware`  | Прошивка       | Flash firmware via an external programmer tool  |
+| `packages/app_test_stnd` | Тестирование стенда    | Run ICT/FCT tests via UART using YAML scenarios |
 | `packages/app_template`  | Шаблон         | Empty starting point for new apps               |
 | `shell`                  | —              | Launcher that shows every installed app as a tab|
 | `packages/core`          | —              | Shared code (plugin contract, serial, process)  |
@@ -29,6 +30,7 @@ introsat-toolbox/
 │   ├── core/            # shared contract + helpers (satcore)
 │   ├── app_comms/       # COM interaction app
 │   ├── app_firmware/    # firmware flashing app
+│   ├── app_test_stnd/   # test stand controller (I2C, SPI, GPIO)
 │   └── app_template/    # copy this to make a new app
 └── shell/               # launcher with tabs
 ```
@@ -61,6 +63,7 @@ Run a single app on its own:
 ```bash
 python -m app_comms       # only the COM interaction app
 python -m app_firmware    # only the firmware app
+python -m app_test_stnd   # only the test stand app
 python -m app_template    # only the template
 ```
 
