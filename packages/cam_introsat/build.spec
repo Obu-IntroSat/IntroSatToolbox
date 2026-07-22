@@ -1,19 +1,16 @@
-# -*- mode: python ; coding: utf-8 -*-
+# PyInstaller spec for the cam_introsat application.
+# Build with:  pyinstaller build.spec
 
-from PyInstaller.utils.hooks import collect_submodules, collect_data_files
+from PyInstaller.utils.hooks import collect_submodules
 
 block_cipher = None
 
-# Путь к корню монорепозитория (если build.spec лежит в packages/camera/)
-# или укажите абсолютный путь, если структура иная.
-pathex_extra = ['..']  # поднимаемся на уровень выше, чтобы найти core/satcore
-
 a = Analysis(
     ["cam_introsat/__main__.py"],
-    pathex=['.'] + pathex_extra,   # добавляем путь к родительской папке
+    pathex=['.', '../core'],                          # путь к satcore
     binaries=[],
-    datas=[] + collect_data_files('satcore'),  # если satcore содержит свои data-файлы
-    hiddenimports=collect_submodules('cam_introsat') + collect_submodules('satcore'),  # включаем всё из satcore
+    datas=[],
+    hiddenimports=collect_submodules('cam_introsat') + collect_submodules('satcore'),  # включаем satcore
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
@@ -28,7 +25,6 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='cam-introsat',
-    console=False,   # True, если нужна консоль
-    icon=None,
+    name="cam-introsat",
+    console=False,
 )
