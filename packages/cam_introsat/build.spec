@@ -1,25 +1,27 @@
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+from PyInstaller.utils.hooks import collect_submodules
 
-[project]
-name = "cam-introsat"
-version = "0.1.0"
-description = "Camera application for Introsat"
-requires-python = ">=3.10"
-dependencies = [
-    "satcore @ ../core",   # <--- ИСПРАВЛЕНО: локальный путь, а не имя с PyPI
-    "PySide6>=6.6",
-    "pyserial>=3.5",
-    "Pillow>=10.0",
-]
+block_cipher = None
 
-[project.entry-points."introsat.apps"]
-camera_vibe2k26summer = "cam_introsat.plugin:CameraPlugin"
+a = Analysis(
+    ["cam_introsat/__main__.py"],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=collect_submodules("cam_introsat"),
+    hookspath=[],
+    runtime_hooks=[],
+    excludes=[],
+    cipher=block_cipher,
+)
 
-[project.scripts]
-cam-introsat = "cam_introsat.__main__:main"
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["cam_introsat*"]
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.datas,
+    [],
+    name="cam-introsat",
+    console=False,
+)
