@@ -17,3 +17,7 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+
+packages/cam_introsat/cam_introsat/captures/
+packages/cam_introsat/cam_introsat/core/worker.py

@@ -5,11 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "satcore"
 version = "0.1.0"
-description = "Shared core for IntroSat Toolbox apps (plugin contract, serial, process helpers)"
+description = "Core library for IntroSat applications"
 requires-python = ">=3.10"
 dependencies = [
-    "PySide6>=6.6",
     "pyserial>=3.5",
+    # PySide6 не требуется, если core не использует Qt напрямую,
+    # но если использует – добавьте "PySide6>=6.6"
 ]
 
 [tool.setuptools.packages.find]

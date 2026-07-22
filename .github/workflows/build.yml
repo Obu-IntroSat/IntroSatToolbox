@@ -42,6 +42,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      # НОВЫЙ ШАГ: установка core-пакета как обычного (не editable)
+      - name: Install satcore as regular package
+        run: |
+          pip install packages/core
+
       - name: Build combined launcher
         run: pyinstaller shell/build.spec
 
@@ -50,8 +55,12 @@ jobs:
           pyinstaller packages/app_comms/build.spec
           pyinstaller packages/app_firmware/build.spec
 
-      # Pack into one platform-named archive so release assets never collide
-      # (Linux/macOS executables share the same names). tar exists on all runners.
+      # НОВЫЙ ШАГ: сборка camera приложения с явным указанием satcore
+      - name: Build camera app
+        run: |
+          pyinstaller --onefile --windowed --hidden-import=satcore --collect-all satcore packages/cam_introsat/cam_introsat/__main__.py
+
+      # Упаковка всех собранных бинарников в архив
       - name: Package build
         shell: bash
         run: |
