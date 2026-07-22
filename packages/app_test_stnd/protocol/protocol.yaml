@@ -355,12 +355,53 @@ commands:
 
 # ========== КОДЫ ОШИБОК ==========
 error_codes:
+  # Общие ошибки
   WRONG_OPCODE: 100
+
+  # UART
   UART_INIT_FAIL: 200
   UART_INVALID_NUM: 210
   UART_INVALID_STOP_BITS: 220
   UART_INVALID_PARITY: 230
   UART_INVALID_DATA_BITS: 240
-  SPI_INIT_FAIL: 300
-  SPI_INVALID_PRESCALER: 310   # неверный делитель (не степень двойки)
-  SPI_INVALID_NUM: 320         # неверный номер SPI
+
+  # I2C
+  I2C_INIT_FAIL: 300
+  I2C_INVALID_NUM: 310
+  I2C_INVALID_ADDRESSING: 320
+  I2C_INVALID_LEN: 330
+
+  # SPI
+  SPI_INIT_FAIL: 400
+  SPI_INVALID_MODE: 410
+  SPI_INVALID_BIT_ORDER: 420
+  SPI_INVALID_PRESCALER: 430
+  SPI_INVALID_NUM: 440
+
+  # GPIO
+  GPIO_INVALID_PIN: 600
+  GPIO_INVALID_PULL: 610
+
+  # ADC
+  ADC_INVALID_CHANNEL: 700
+
+# i2c:
+# 0 - No error
+# 1 - BERR error
+# 2 - ARLO error
+# 4 - AF error
+# 8 - OVR error
+# 16 - DMA transfer error
+# 32 - Timeout Error
+# 64 - Size Management error
+# 128 - DMA Parametr Error
+# 512 - Wrong start Error
+# spi:
+# 0 - No error
+# 1 - MODF error
+# 2 - CRC error
+# 4 - OVR error
+# 8 - FRE error
+# 16 - DMA transfer error
+# 32 - Error on RXNE/TXE/BSY Flag
+# 64 - Error during SPI Abort procedure
