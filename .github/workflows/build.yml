@@ -1,6 +1,5 @@
 name: Build executables
 
-# Build on every tag like v1.0.0 and publish the executables as artifacts.
 on:
   push:
     tags:
@@ -42,6 +41,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
 
+      # НОВЫЙ ШАГ: установка core-пакета
+      - name: Install satcore
+        run: |
+          pip install packages/core
+
       - name: Build combined launcher
         run: pyinstaller shell/build.spec
 
@@ -50,8 +54,14 @@ jobs:
           pyinstaller packages/app_comms/build.spec
           pyinstaller packages/app_firmware/build.spec
 
-      # Pack into one platform-named archive so release assets never collide
-      # (Linux/macOS executables share the same names). tar exists on all runners.
+      # НОВЫЙ ШАГ: сборка камеры
+      - name: Build camera app
+        run: |
+          # если есть spec-файл:
+          # pyinstaller packages/cam_introsat/build.spec
+          # или прямая команда:
+          pyinstaller --onefile --windowed --hidden-import=satcore --collect-all satcore cam_introsat/__main__.py
+
       - name: Package build
         shell: bash
         run: |
