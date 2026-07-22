@@ -1,31 +1,14 @@
-
-# Copy this whole folder to create a new app, then rename:
-# - the folder            packages/app_template -> packages/app_<name>
-# - the package folder     app_template          -> app_<name>
-# - the name / entry point / script below
-
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "camera-vibe2k26summer"
+name = "satcore"
 version = "0.1.0"
-description = "Camera VIBE2K26SUMMER application"
+description = "Core library for Introsat applications"
 requires-python = ">=3.10"
-dependencies = [
-    "satcore",
-    "PySide6>=6.6",
-    "pyserial>=3.5",
-    "Pillow>=10.0",
-]
-
-[project.entry-points."introsat.apps"]
-camera_vibe2k26summer = "camera_vibe2k26summer.plugin:CameraPlugin"
-
-[project.scripts]
-camera-vibe2k26summer = "camera_vibe2k26summer.__main__:main"
+dependencies = []   # или укажите общие зависимости
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["camera_vibe2k26summer*"]
+include = ["satcore*"]
