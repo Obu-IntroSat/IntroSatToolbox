@@ -7,10 +7,10 @@ block_cipher = None
 
 a = Analysis(
     ["cam_introsat/__main__.py"],
-    pathex=['.', '../core'],                          # путь к satcore
+    pathex=['.', '../core'],                # чтобы PyInstaller нашёл satcore при анализе
     binaries=[],
     datas=[],
-    hiddenimports=collect_submodules('cam_introsat') + collect_submodules('satcore'),  # включаем satcore
+    hiddenimports=collect_submodules('cam_introsat') + collect_submodules('satcore'),  # добавили satcore
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
