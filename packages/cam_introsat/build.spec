@@ -4,10 +4,10 @@ block_cipher = None
 
 a = Analysis(
     ['cam_introsat/__main__.py'],
-    pathex=['.'],                     # можно указать абсолютный путь к проекту
+    pathex=['.'],
     binaries=[],
     datas=[],
-    hiddenimports=collect_submodules('cam_introsat') + ['satcore'],
+    hiddenimports=collect_submodules('cam_introsat') + ['satcore'],  # или collect_submodules('satcore')
     hookspath=[],
     runtime_hooks=[],
     excludes=[],
@@ -23,8 +23,8 @@ exe = EXE(
     a.datas,
     [],
     name='cam-introsat',
-    console=False,          # для отладки можно временно поставить True
-    upx=True,               # если UPX установлен
+    console=True,   # пока True для отладки
+    upx=True,
     strip=False,
     debug=False,
 )
